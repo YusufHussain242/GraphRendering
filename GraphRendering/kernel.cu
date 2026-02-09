@@ -51,6 +51,14 @@ void getForces(float* X, float* Y, float* EDGE_MASK, float* FX, float* FY, int n
     }
 }
 
+__global__ 
+void vecAdd(float* A, float* B, float* C, int n)
+{
+    int i = threadIdx.x + blockDim.x * blockIdx.x;
+    if (i < n)
+        C[i] = A[i] + B[i];
+}
+
 void applyEads(GV::Graph &graph, const int iters, const float k1, const float k2)
 {
     const int NUM_VERTS = graph.verts.size();
@@ -59,17 +67,21 @@ void applyEads(GV::Graph &graph, const int iters, const float k1, const float k2
     float* EDGE_MASK;
     float* FX;
     float* FY;
+    float* KEYS_IN;
+    float* KEYS_OUT;
+    float* DX;
+    float* DY;
 
     CUDA_CHECK(cudaMallocManaged(&X, sizeof(float) * NUM_VERTS));
     CUDA_CHECK(cudaMallocManaged(&Y, sizeof(float) * NUM_VERTS));
     CUDA_CHECK(cudaMallocManaged(&EDGE_MASK, sizeof(float) * NUM_VERTS * NUM_VERTS));
     CUDA_CHECK(cudaMallocManaged(&FX, sizeof(float) * NUM_VERTS * NUM_VERTS));
     CUDA_CHECK(cudaMallocManaged(&FY, sizeof(float) * NUM_VERTS * NUM_VERTS));
+    CUDA_CHECK(cudaMallocManaged(&KEYS_IN, sizeof(int) * NUM_VERTS * NUM_VERTS));
+    CUDA_CHECK(cudaMallocManaged(&KEYS_OUT, sizeof(int) * NUM_VERTS));
+    CUDA_CHECK(cudaMallocManaged(&DX, sizeof(float) * NUM_VERTS));
+    CUDA_CHECK(cudaMallocManaged(&DY, sizeof(float) * NUM_VERTS));
 
-    // We need to zero out the FX, and FY vectors. Not sure if this is working
-    // it's causing CUDA runtime errors
-    CUDA_CHECK(cudaMemset(&FX, 0, sizeof(float) * NUM_VERTS * NUM_VERTS));
-    CUDA_CHECK(cudaMemset(&FY, 0, sizeof(float) * NUM_VERTS * NUM_VERTS));
 
     for (int i = 0; i < NUM_VERTS; i++)
     {
@@ -81,6 +93,10 @@ void applyEads(GV::Graph &graph, const int iters, const float k1, const float k2
         for (int v = 0; v < NUM_VERTS; v++)
             EDGE_MASK[u * NUM_VERTS + v] = graph.edges[u][v] ? 1.f : 0.f;
 
+    for (int r = 0; r < NUM_VERTS; r++)
+        for (int c = 0; c < NUM_VERTS; c++)
+            KEYS_IN[r * NUM_VERTS + c] = r;
+
     for (int iter = 0; iter <= iters; iter++)
     {
         int gridSize = (NUM_VERTS + 31) / 32;
@@ -90,23 +106,14 @@ void applyEads(GV::Graph &graph, const int iters, const float k1, const float k2
         CUDA_CHECK(cudaGetLastError());
         CUDA_CHECK(cudaDeviceSynchronize());
 
-        for (int r = 0; r < NUM_VERTS; r++)
-        {
-            for (int c = 0; c < NUM_VERTS; c++)
-            {
-                X[r] += FX[r * NUM_VERTS + c];
-                Y[r] += FY[r * NUM_VERTS + c];
-            }
-        }
+        thrust::reduce_by_key(thrust::device, KEYS_IN, KEYS_IN + NUM_VERTS * NUM_VERTS, FX, KEYS_OUT, DX);
+        thrust::reduce_by_key(thrust::device, KEYS_IN, KEYS_IN + NUM_VERTS * NUM_VERTS, FY, KEYS_OUT, DY);
 
-        // Need to get rid of this for loop
-        /*
-        for (int i = 0; i < NUM_VERTS; i++)
-        {
-            X[i] += thrust::reduce(thrust::device, FX + i * NUM_VERTS, FX + i * (NUM_VERTS + 1));
-            Y[i] += thrust::reduce(thrust::device, FY + i * NUM_VERTS, FY + i * (NUM_VERTS + 1));
-        }
-        */
+        int blockCount = (NUM_VERTS + 1023) / 1024;
+        vecAdd<<<blockCount, 1024>>>(X, DX, X, NUM_VERTS);
+        vecAdd<<<blockCount, 1024>>>(Y, DY, Y, NUM_VERTS);
+        CUDA_CHECK(cudaGetLastError());
+        CUDA_CHECK(cudaDeviceSynchronize());
     }
 
     for (int i = 0; i < NUM_VERTS; i++)
@@ -120,4 +127,8 @@ void applyEads(GV::Graph &graph, const int iters, const float k1, const float k2
     CUDA_CHECK(cudaFree(EDGE_MASK));
     CUDA_CHECK(cudaFree(FX));
     CUDA_CHECK(cudaFree(FY));
+    CUDA_CHECK(cudaFree(KEYS_IN));
+    CUDA_CHECK(cudaFree(KEYS_OUT));
+    CUDA_CHECK(cudaFree(DX));
+    CUDA_CHECK(cudaFree(DY));
 }
