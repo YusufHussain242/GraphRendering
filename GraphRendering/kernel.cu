@@ -109,9 +109,9 @@ void applyEads(GV::Graph &graph, const int iters, const float k1, const float k2
         thrust::reduce_by_key(thrust::device, KEYS_IN, KEYS_IN + NUM_VERTS * NUM_VERTS, FX, KEYS_OUT, DX);
         thrust::reduce_by_key(thrust::device, KEYS_IN, KEYS_IN + NUM_VERTS * NUM_VERTS, FY, KEYS_OUT, DY);
 
-        int blockCount = (NUM_VERTS + 1023) / 1024;
-        vecAdd<<<blockCount, 1024>>>(X, DX, X, NUM_VERTS);
-        vecAdd<<<blockCount, 1024>>>(Y, DY, Y, NUM_VERTS);
+        gridSize = (NUM_VERTS + 1023) / 1024;
+        vecAdd<<<gridSize, 1024>>>(X, DX, X, NUM_VERTS);
+        vecAdd<<<gridSize, 1024>>>(Y, DY, Y, NUM_VERTS);
         CUDA_CHECK(cudaGetLastError());
         CUDA_CHECK(cudaDeviceSynchronize());
     }
