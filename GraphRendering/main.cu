@@ -11,7 +11,7 @@ const int WINDOW_HEIGHT = 1000;
 
 void renderGraph()
 {
-    GV::Graph graph;
+    Graph graph;
     while (true)
     {
         const int NUM_OPTIONS = 2;
@@ -80,7 +80,7 @@ void performanceTests()
     std::cout << "Enter edge ratio (ratio of edges relative to vertices):" << std::endl;
     std::cin >> edgeRatio;
 
-    linearPerfTestEads(lower, upper, step, edgeRatio, "C:/PerformanceResults/" + testName);
+    linearPerfTestEads(lower, upper, step, edgeRatio, "../PerformanceResults/" + testName);
 }
 
 int main()

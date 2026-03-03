@@ -5,7 +5,7 @@
 #include <chrono>
 #include <vector>
 
-GV::Graph readGraph()
+Graph readGraph()
 {
     int vertCount;
     std::cout << "Enter number of vertices" << std::endl;
@@ -15,7 +15,7 @@ GV::Graph readGraph()
     std::cout << "Enter number of edges" << std::endl;
     std::cin >> edgeCount;
 
-    GV::Graph graph(vertCount);
+    Graph graph(vertCount);
     std::cout << "Enter " << vertCount << " vertex positions\n";
     for (int i = 0; i < graph.verts.size(); i++)
     {
@@ -36,9 +36,9 @@ GV::Graph readGraph()
     return graph;
 }
 
-GV::Graph randomGraph(int vertCount, int edgeCount, float range)
+Graph randomGraph(int vertCount, int edgeCount, float range)
 {
-    GV::Graph graph(vertCount);
+    Graph graph(vertCount);
 
     std::mt19937 rng(std::chrono::steady_clock::now().time_since_epoch().count());
     std::uniform_int_distribution<int> vertDistribution(0, vertCount - 1);
@@ -57,7 +57,7 @@ GV::Graph randomGraph(int vertCount, int edgeCount, float range)
     }
 
     std::uniform_real_distribution<float> posDistribution(0.0f, range);
-    for (GV::Vertex& vert : graph.verts)
+    for (Vertex& vert : graph.verts)
         vert.position = { posDistribution(rng), posDistribution(rng) };
 
     return graph;

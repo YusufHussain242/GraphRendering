@@ -59,7 +59,7 @@ void vecAdd(float* A, float* B, float* C, int n)
         C[i] = A[i] + B[i];
 }
 
-void applyEads(GV::Graph &graph, const int iters, const float k1, const float k2)
+void applyEads(Graph &graph, const int iters, const float k1, const float k2)
 {
     const int NUM_VERTS = graph.verts.size();
     float* X;

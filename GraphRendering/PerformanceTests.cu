@@ -23,7 +23,7 @@ std::vector<std::chrono::duration<double>> perfTestEads(const std::vector<std::p
     std::vector<std::chrono::duration<double>> results;
     for (const auto& [vertCount, edgeCount] : vertAndEdgeCounts)
     {
-        GV::Graph graph = randomGraph(vertCount, edgeCount, RANGE);
+        Graph graph = randomGraph(vertCount, edgeCount, RANGE);
         const auto start = std::chrono::high_resolution_clock::now();
         applyEads(graph, 1000, 1000.f, 0.001f);
         const auto end = std::chrono::high_resolution_clock::now();

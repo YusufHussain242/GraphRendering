@@ -2,8 +2,6 @@
 
 #include <iostream>
 
-using namespace GV;
-
 void Graph::drawLine(sf::RenderWindow& window, sf::Vector2f begin, sf::Vector2f end)
 {
     std::vector line = { sf::Vertex{begin}, sf::Vertex{end} };

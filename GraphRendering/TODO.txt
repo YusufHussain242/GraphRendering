@@ -1,0 +1,3 @@
+Refactor performance test to be a higher order function which takes in a graph positioning algorithm.
+
+Include extra information in performance tests e.g. Number of verts and edges in graph, eads configuration.
