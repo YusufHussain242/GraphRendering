@@ -1,5 +1,4 @@
-﻿#include "kernal.h"
-#include <iostream>
+#include "EadsPositioner.h"
 #include <vector>
 
 #include <thrust/reduce.h>
@@ -51,7 +50,7 @@ void getForces(float* X, float* Y, float* EDGE_MASK, float* FX, float* FY, int n
     }
 }
 
-__global__ 
+__global__
 void vecAdd(float* A, float* B, float* C, int n)
 {
     int i = threadIdx.x + blockDim.x * blockIdx.x;
@@ -59,7 +58,7 @@ void vecAdd(float* A, float* B, float* C, int n)
         C[i] = A[i] + B[i];
 }
 
-void applyEads(Graph &graph, const int iters, const float k1, const float k2)
+void EadsPositioner::positionVertices(Graph& graph)
 {
     const int NUM_VERTS = graph.verts.size();
     float* X;
@@ -87,7 +86,7 @@ void applyEads(Graph &graph, const int iters, const float k1, const float k2)
     {
         X[i] = graph.verts[i].position.x;
         Y[i] = graph.verts[i].position.y;
-	}
+    }
 
     for (int u = 0; u < NUM_VERTS; u++)
         for (int v = 0; v < NUM_VERTS; v++)
@@ -131,4 +130,14 @@ void applyEads(Graph &graph, const int iters, const float k1, const float k2)
     CUDA_CHECK(cudaFree(KEYS_OUT));
     CUDA_CHECK(cudaFree(DX));
     CUDA_CHECK(cudaFree(DY));
+}
+
+std::string EadsPositioner::getConfigStr()
+{
+	std::string res = "";
+    res += "EADS\n";
+	res += "Iters: " + std::to_string(iters) + "\n";
+	res += "K1: " + std::to_string(k1) + "\n";
+	res += "K2: " + std::to_string(k2) + "\n";
+	return res;
 }

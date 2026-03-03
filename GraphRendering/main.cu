@@ -1,7 +1,7 @@
 #include <SFML/Graphics.hpp>
-#include "kernal.h"
 #include "Graph.h"
 #include "GraphGenerators.h"
+#include "EadsPositioner.h"
 #include "PerformanceTests.h"
 
 #include <iostream>
@@ -80,7 +80,11 @@ void performanceTests()
     std::cout << "Enter edge ratio (ratio of edges relative to vertices):" << std::endl;
     std::cin >> edgeRatio;
 
-    linearPerfTestEads(lower, upper, step, edgeRatio, "../PerformanceResults/" + testName);
+    EadsPositioner positioner;
+    positioner.iters = 1000;
+    positioner.k1 = 1000.0f;
+    positioner.k2 = 0.001f;
+    linearPerfTestRandom(positioner, lower, upper, step, edgeRatio, "../PerformanceResults/" + testName);
 }
 
 int main()
