@@ -90,7 +90,7 @@ void performanceTests()
 
 void tempFunc()
 {
-    std::vector<float> a(1e6, 2);
+    std::vector<float> a(1e8, 2);
     std::cout << reduceAdd(a, true) << "\n";
 }
 

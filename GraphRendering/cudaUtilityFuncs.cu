@@ -19,13 +19,13 @@ __global__ void reduceAddKernel(const float* d_data, float* d_result, int numEle
     extern __shared__ float s_data[];
 
     int s_i = threadIdx.x;
-    int d_i = threadIdx.x + blockIdx.x * blockDim.x;
-    s_data[s_i] = getValue(d_data, d_i, numElements);
+    int d_i = threadIdx.x + blockIdx.x * blockDim.x * 2;
+    s_data[s_i] = getValue(d_data, d_i, numElements) + getValue(d_data, d_i + blockDim.x, numElements);
 
-    for (int offset = 1; offset < blockDim.x; offset *= 2)
+    for (int offset = blockDim.x >> 1; offset > 0; offset >>= 1)
     {
         __syncthreads();
-        if (s_i % (2 * offset) == 0)
+        if (s_i < offset)
             s_data[s_i] += s_data[s_i + offset];
     }
 
@@ -48,7 +48,8 @@ float reduceAdd(std::vector<float> array, bool timeResults)
     CUDA_CHECK(cudaMemcpy(d_data, h_data, NUM_BYTES, cudaMemcpyHostToDevice));
 
     int threads = 256;
-    int blocks = cuda::ceil_div(array.size(), threads);
+    // Only need half as many blocks to cover array, since each thread reduces two blocks.
+    int blocks = cuda::ceil_div(cuda::ceil_div(array.size(), 2), threads);
     
     float* d_result1;
     float* d_result2;
@@ -62,7 +63,7 @@ float reduceAdd(std::vector<float> array, bool timeResults)
     while (curElemCount > 1)
     {
         reduceAddKernel<<<blocks, threads, threads * sizeof(float)>>>(d_result1, d_result2, curElemCount);
-        curElemCount = cuda::ceil_div(curElemCount, threads);
+        curElemCount = cuda::ceil_div(cuda::ceil_div(curElemCount, 2), threads);
         std::swap(d_result1, d_result2);
     }
 
