@@ -29,12 +29,12 @@ void getForces(float* X, float* Y, float* EDGE_MASK, float* FX, float* FY, int n
 
     if (r < numVerts && c < numVerts && r != c)
     {
-        float dx = X[r] - X[c];
-        float dy = Y[r] - Y[c];
+        float dx = X[c] - X[r];
+        float dy = Y[c] - Y[r];
         float dist = sqrtf((dx * dx) + (dy * dy));
 
-        float em_force = k1 / (dist * dist);
-        float elastic_force = -k2 * dist * EDGE_MASK[i];
+        float em_force = -k1 / (dist * dist);
+        float elastic_force = k2 * dist * EDGE_MASK[i];
         float total_force = em_force + elastic_force;
 
         if (dist > 0.0001f)

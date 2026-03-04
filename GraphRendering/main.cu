@@ -3,6 +3,7 @@
 #include "GraphGenerators.h"
 #include "EadsPositioner.h"
 #include "PerformanceTests.h"
+#include "cudaUtilityFuncs.h"
 
 #include <iostream>
 
@@ -87,6 +88,12 @@ void performanceTests()
     linearPerfTestRandom(positioner, lower, upper, step, edgeRatio, "../PerformanceResults/" + testName);
 }
 
+void tempFunc()
+{
+    std::vector<float> a(1e6, 2);
+    std::cout << reduceAdd(a, true) << "\n";
+}
+
 int main()
 {
     while (true)
@@ -94,6 +101,7 @@ int main()
         std::cout << "CHOSE OPTION:" << std::endl;
         std::cout << "1. Render Graph" << std::endl;
         std::cout << "2. Performance Tests" << std::endl;
+        std::cout << "3. Temp" << std::endl;
 
         int option;
         std::cin >> option;
@@ -104,6 +112,9 @@ int main()
             break;
         case 2:
             performanceTests();
+            break;
+        case 3:
+            tempFunc();
             break;
         }
     }
