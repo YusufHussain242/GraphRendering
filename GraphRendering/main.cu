@@ -45,6 +45,12 @@ void renderGraph()
             break;
     }
 
+    EadsPositioner positioner;
+    positioner.iters = 1000;
+    positioner.k1 = 1000.0f;
+    positioner.k2 = 0.001f;
+    positioner.positionVertices(graph);
+
     sf::RenderWindow window(sf::VideoMode({ WINDOW_WIDTH, WINDOW_HEIGHT }), "Graph Renderer");
     while (window.isOpen())
     {

@@ -62,19 +62,17 @@ float reduceAdd(std::vector<float> array, bool timeResults)
     int curElemCount = blocks;
     while (curElemCount > 1)
     {
+        blocks = cuda::ceil_div(cuda::ceil_div(curElemCount, 2), threads);
         reduceAddKernel<<<blocks, threads, threads * sizeof(float)>>>(d_result1, d_result2, curElemCount);
-        curElemCount = cuda::ceil_div(cuda::ceil_div(curElemCount, 2), threads);
+        curElemCount = blocks;
         std::swap(d_result1, d_result2);
     }
 
-    CUDA_CHECK(cudaGetLastError());
-    CUDA_CHECK(cudaDeviceSynchronize());
-
+    CUDA_CHECK(cudaMemcpy(&h_result, d_result1, sizeof(float), cudaMemcpyDeviceToHost));
+    
     const auto stop = std::chrono::high_resolution_clock::now();
     if (timeResults)
         std::cout << "REDUCTION TIME: " << std::chrono::duration_cast<std::chrono::milliseconds>(stop - start) << "\n";
-
-    CUDA_CHECK(cudaMemcpy(&h_result, d_result1, sizeof(float), cudaMemcpyDeviceToHost));
 
     CUDA_CHECK(cudaFree(d_data));
     CUDA_CHECK(cudaFree(d_result1));
