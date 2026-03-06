@@ -49,6 +49,7 @@ void renderGraph()
     positioner.iters = 1000;
     positioner.k1 = 1000.0f;
     positioner.k2 = 0.001f;
+    positioner.timeResults = true;
     positioner.positionVertices(graph);
 
     sf::RenderWindow window(sf::VideoMode({ WINDOW_WIDTH, WINDOW_HEIGHT }), "Graph Renderer");
@@ -91,6 +92,7 @@ void performanceTests()
     positioner.iters = 1000;
     positioner.k1 = 1000.0f;
     positioner.k2 = 0.001f;
+    positioner.timeResults = true;
     linearPerfTestRandom(positioner, lower, upper, step, edgeRatio, "../PerformanceResults/" + testName);
 }
 

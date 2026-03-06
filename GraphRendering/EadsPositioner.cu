@@ -1,4 +1,5 @@
 #include "EadsPositioner.h"
+#include <iostream>
 #include <vector>
 #include <algorithm>
 
@@ -78,9 +79,59 @@ void vecAdd(float *A, float *B, float *out, int numElems)
         out[i] = A[i] + B[i];
 }
 
+// The below function will produce a matrix in d_result1 of shape (1, numRows) which is identical in
+// memory to a matrix of shape (numRows, 1) when using modulo indexing. Hence, d_result1 can be used
+// as if it were a vector of size numRows after this function is called.
+void performReduction2D(float *d_data, float *d_result1, float *d_result2, int numRows, int numCols, dim3 grid, dim3 block, cudaStream_t stream)
+{
+    reduceAddKernel2D<<<grid, block, block.x * sizeof(float), stream>>>(d_data, d_result1, numRows, numCols, grid.x);
+    int curNumCols = grid.x;
+    while (curNumCols > 1)
+    {
+        dim3 curGrid(cuda::ceil_div((curNumCols + 1) / 2, block.x), numRows);
+        reduceAddKernel2D<<<curGrid, block, block.x * sizeof(float), stream>>>(d_result1, d_result2, numRows, curNumCols, curGrid.x);
+        curNumCols = curGrid.x;
+        std::swap(d_result1, d_result2);
+    }
+}
+
 void EadsPositioner::positionVertices(Graph& graph)
 {
     const int NUM_VERTS = graph.verts.size();
+
+    // Initialize streams
+    cudaStream_t mainStream;
+    cudaStreamCreate(&mainStream);
+    cudaStream_t subStream;
+    cudaStreamCreate(&subStream);
+
+    // Initialize events
+    cudaEvent_t subProcess;
+    cudaEventCreate(&subProcess);
+    std::vector<cudaEvent_t> startForces;
+    std::vector<cudaEvent_t> endForces;
+    std::vector<cudaEvent_t> startReduce;
+    std::vector<cudaEvent_t> endReduce;
+    std::vector<cudaEvent_t> startAdd;
+    std::vector<cudaEvent_t> endAdd;
+    if (timeResults)
+    {
+        startForces = std::vector<cudaEvent_t>(iters);
+        endForces = std::vector<cudaEvent_t>(iters);
+        startReduce = std::vector<cudaEvent_t>(iters);
+        endReduce = std::vector<cudaEvent_t>(iters);
+        startAdd = std::vector<cudaEvent_t>(iters);
+        endAdd = std::vector<cudaEvent_t>(iters);
+        for (int i = 0; i < iters; i++)
+        {
+            cudaEventCreate(&startForces[i]);
+            cudaEventCreate(&endForces[i]);
+            cudaEventCreate(&startReduce[i]);
+            cudaEventCreate(&endReduce[i]);
+            cudaEventCreate(&startAdd[i]);
+            cudaEventCreate(&endAdd[i]);
+        }
+    }
 
     // Initialize host memory
     float* h_X;
@@ -130,42 +181,65 @@ void EadsPositioner::positionVertices(Graph& graph)
     CUDA_CHECK(cudaMalloc(&d_DY1, sizeof(float) * NUM_VERTS * reduceGrid.x));
     CUDA_CHECK(cudaMalloc(&d_DY2, sizeof(float) * NUM_VERTS * reduceGrid.x));
 
-    dim3 forcesBlock(THREADS_PER_BLOCK_2D, THREADS_PER_BLOCK_2D);
-    dim3 forcesGrid(NUM_VERTS / forcesBlock.x, NUM_VERTS / forcesBlock.y);
     for (int iter = 0; iter < iters; iter++)
     {
-        getForces<<<forcesGrid, forcesBlock>>>(d_X, d_Y, d_EDGE_MASK, d_FX, d_FY, NUM_VERTS, k1, k2);
-        
-        // The below process will produce a matrix d_DX1 of shape (1, NUM_VERTS) which is identical in
-        // memory to a matrix of shape (NUM_VERTS, 1) when using modulo indexing. Hence, d_DX1 can be used
-        // as if it were a vector of size NUM_VERTS.
-        reduceAddKernel2D<<<reduceGrid, reduceBlock, reduceBlock.x * sizeof(float)>>>(d_FX, d_DX1, NUM_VERTS, NUM_VERTS, reduceGrid.x);
-        int curNumCols = reduceGrid.x;
-        while (curNumCols > 1)
-        {
-            dim3 curReduceGrid(cuda::ceil_div((curNumCols + 1) / 2, reduceBlock.x), NUM_VERTS);
-            reduceAddKernel2D<<<curReduceGrid, reduceBlock, reduceBlock.x * sizeof(float)>>>(d_DX1, d_DX2, NUM_VERTS, curNumCols, curReduceGrid.x);
-            curNumCols = curReduceGrid.x;
-            std::swap(d_DX1, d_DX2);
-        }
+        if (timeResults)
+            cudaEventRecord(startForces[iter], mainStream);
 
-        reduceAddKernel2D<<<reduceGrid, reduceBlock, reduceBlock.x * sizeof(float)>>>(d_FY, d_DY1, NUM_VERTS, NUM_VERTS, reduceGrid.x);
-        curNumCols = reduceGrid.x;
-        while (curNumCols > 1)
-        {
-            dim3 curReduceGrid(cuda::ceil_div((curNumCols + 1) / 2, reduceBlock.x), NUM_VERTS);
-            reduceAddKernel2D<<<curReduceGrid, reduceBlock, reduceBlock.x * sizeof(float)>>>(d_DY1, d_DY2, NUM_VERTS, curNumCols, curReduceGrid.x);
-            curNumCols = curReduceGrid.x;
-            std::swap(d_DY1, d_DY2);
-        }
+        dim3 forcesBlock(THREADS_PER_BLOCK_2D, THREADS_PER_BLOCK_2D);
+        dim3 forcesGrid(cuda::ceil_div(NUM_VERTS, forcesBlock.x), cuda::ceil_div(NUM_VERTS, forcesBlock.y));
+        getForces<<<forcesGrid, forcesBlock, 0, mainStream>>>(d_X, d_Y, d_EDGE_MASK, d_FX, d_FY, NUM_VERTS, k1, k2);
+        
+        if (timeResults)
+            cudaEventRecord(endForces[iter], mainStream);
+
+        if (timeResults)
+            cudaEventRecord(startReduce[iter], mainStream);
+
+        // Reductions can be performed in parallel
+        performReduction2D(d_FX, d_DX1, d_DX2, NUM_VERTS, NUM_VERTS, reduceGrid, reduceBlock, mainStream);
+        performReduction2D(d_FY, d_DY1, d_DY2, NUM_VERTS, NUM_VERTS, reduceGrid, reduceBlock, subStream);
+        cudaEventRecord(subProcess, subStream);
+        cudaStreamWaitEvent(mainStream, subProcess);
+
+        if (timeResults)
+            cudaEventRecord(endReduce[iter], mainStream);
+
+        if (timeResults)
+            cudaEventRecord(startAdd[iter], mainStream);
 
         int vecAddThreads = THREADS_PER_BLOCK;
         int vecAddBlocks = cuda::ceil_div(NUM_VERTS, THREADS_PER_BLOCK);
-        vecAdd<<<vecAddBlocks, vecAddThreads>>>(d_X, d_DX1, d_X, NUM_VERTS);
-        vecAdd<<<vecAddBlocks, vecAddThreads>>>(d_Y, d_DY1, d_Y, NUM_VERTS);
+        vecAdd<<<vecAddBlocks, vecAddThreads, 0, mainStream>>>(d_X, d_DX1, d_X, NUM_VERTS);
+        vecAdd<<<vecAddBlocks, vecAddThreads, 0, mainStream>>>(d_Y, d_DY1, d_Y, NUM_VERTS);
+
+        if (timeResults)
+            cudaEventRecord(endAdd[iter], mainStream);
     }
 
     CUDA_CHECK(cudaDeviceSynchronize());
+
+    if (timeResults)
+    {
+        float totalForces = 0;
+        float totalReduce = 0;
+        float totalAdd = 0;
+        for (int i = 0; i < iters; i++)
+        {
+            float delta;
+            cudaEventElapsedTime(&delta, startForces[i], endForces[i]);
+            totalForces += delta;
+            cudaEventElapsedTime(&delta, startReduce[i], endReduce[i]);
+            totalReduce += delta;
+            cudaEventElapsedTime(&delta, startAdd[i], endAdd[i]);
+            totalAdd += delta;
+        }
+
+        std::cout << "Forces Calculation Time: " << totalForces << "ms\n";
+        std::cout << "Reduction Time: " << totalReduce << "ms\n";
+        std::cout << "Vector Addition Time: " << totalAdd << "ms\n";
+    }
+
     CUDA_CHECK(cudaMemcpy(h_X, d_X, sizeof(float) * NUM_VERTS, cudaMemcpyDeviceToHost));
     CUDA_CHECK(cudaMemcpy(h_Y, d_Y, sizeof(float) * NUM_VERTS, cudaMemcpyDeviceToHost));
 
@@ -189,6 +263,25 @@ void EadsPositioner::positionVertices(Graph& graph)
     CUDA_CHECK(cudaFreeHost(h_X));
     CUDA_CHECK(cudaFreeHost(h_Y));
     CUDA_CHECK(cudaFreeHost(h_EDGE_MASK));
+
+    cudaEventDestroy(subProcess);
+
+    if (timeResults)
+    {
+        for (int i = 0; i < iters; i++)
+        {
+            cudaEventDestroy(startForces[i]);
+            cudaEventDestroy(endForces[i]);
+            cudaEventDestroy(startReduce[i]);
+            cudaEventDestroy(endReduce[i]);
+            cudaEventDestroy(startAdd[i]);
+            cudaEventDestroy(endAdd[i]);
+        }
+    }
+
+    cudaStreamDestroy(mainStream);
+    cudaStreamDestroy(subStream);
+
 }
 
 std::string EadsPositioner::getConfigStr()

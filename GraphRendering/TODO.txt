@@ -1,0 +1,1 @@
+Use streams to parallelize DX and DY reductions.
