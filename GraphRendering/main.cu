@@ -2,6 +2,7 @@
 #include "Graph.h"
 #include "GraphGenerators.h"
 #include "EadsPositioner.h"
+#include "EadsPositioner2.h"
 #include "PerformanceTests.h"
 #include "cudaUtilityFuncs.h"
 
@@ -45,11 +46,10 @@ void renderGraph()
             break;
     }
 
-    EadsPositioner positioner;
+    EadsPositioner2 positioner;
     positioner.iters = 1000;
     positioner.k1 = 1000.0f;
     positioner.k2 = 0.001f;
-    positioner.timeResults = true;
     positioner.positionVertices(graph);
 
     sf::RenderWindow window(sf::VideoMode({ WINDOW_WIDTH, WINDOW_HEIGHT }), "Graph Renderer");
@@ -88,11 +88,10 @@ void performanceTests()
     std::cout << "Enter edge ratio (ratio of edges relative to vertices):" << std::endl;
     std::cin >> edgeRatio;
 
-    EadsPositioner positioner;
+    EadsPositioner2 positioner;
     positioner.iters = 1000;
     positioner.k1 = 1000.0f;
     positioner.k2 = 0.001f;
-    positioner.timeResults = true;
     linearPerfTestRandom(positioner, lower, upper, step, edgeRatio, "../PerformanceResults/" + testName);
 }
 

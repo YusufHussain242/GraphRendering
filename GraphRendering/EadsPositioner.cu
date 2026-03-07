@@ -19,7 +19,12 @@ void getForces(float* X, float* Y, float* EDGE_MASK, float* FX, float* FY, int n
     int c = threadIdx.x + blockDim.x * blockIdx.x;
     int i = r * numVerts + c;
 
-    if (r < numVerts && c < numVerts && r != c)
+    if (r == c)
+    {
+        FX[i] = 0;
+        FY[i] = 0;
+    }
+    else if (r < numVerts && c < numVerts)
     {
         float dx = X[c] - X[r];
         float dy = Y[c] - Y[r];
@@ -29,16 +34,8 @@ void getForces(float* X, float* Y, float* EDGE_MASK, float* FX, float* FY, int n
         float elastic_force = k2 * dist * EDGE_MASK[i];
         float total_force = em_force + elastic_force;
 
-        if (dist > 0.0001f)
-        {
-            FX[i] = dx * total_force / dist;
-            FY[i] = dy * total_force / dist;
-        }
-        else
-        {
-            FX[i] = 0;
-            FY[i] = 0;
-        }
+        FX[i] = dx * total_force / dist;
+        FY[i] = dy * total_force / dist;
     }
 }
 
