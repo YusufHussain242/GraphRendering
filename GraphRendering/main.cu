@@ -3,6 +3,7 @@
 #include "GraphGenerators.h"
 #include "EadsPositioner.h"
 #include "EadsPositioner2.h"
+#include "MultiLevelCPUPositioner.h"
 #include "PerformanceTests.h"
 #include "cudaUtilityFuncs.h"
 
@@ -97,8 +98,25 @@ void performanceTests()
 
 void tempFunc()
 {
-    std::vector<float> a(1e8, 2);
-    std::cout << reduceAdd(a, true) << "\n";
+    // std::vector<std::vector<int>> graph = randomEdgeListGraph(1e5, 2e5);
+
+    std::vector<std::vector<int>> graph(1e6);
+    int k = 5;
+    for (int i = 0; i + k < graph.size(); i++)
+    {
+        for (int j = i + 1; j < i + k; j++)
+        {
+            graph[i].push_back(j);
+            graph[j].push_back(i);
+        }
+    }
+    
+    MultiLevelCPUPositioner positioner;
+    
+    auto start = std::chrono::high_resolution_clock::now();
+    Clustering clustering = positioner.createClusterHierarchy(graph, 10);
+    auto end = std::chrono::high_resolution_clock::now();
+    std::cout << "CLUSTER HIERARCHY TIME: " << std::chrono::duration_cast<std::chrono::milliseconds>(end - start) << "\n";
 }
 
 int main()
