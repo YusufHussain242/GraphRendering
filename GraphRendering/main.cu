@@ -1,5 +1,6 @@
 #include <SFML/Graphics.hpp>
 #include "Graph.h"
+#include "GraphEL.h"
 #include "GraphGenerators.h"
 #include "EadsPositioner.h"
 #include "EadsPositioner2.h"
@@ -98,9 +99,10 @@ void performanceTests()
 
 void tempFunc()
 {
+    /*
     // std::vector<std::vector<int>> graph = randomEdgeListGraph(1e5, 2e5);
 
-    std::vector<std::vector<int>> graph(1e6);
+    std::vector<std::vector<int>> graph(1e3);
     int k = 5;
     for (int i = 0; i + k < graph.size(); i++)
     {
@@ -117,6 +119,23 @@ void tempFunc()
     Clustering clustering = positioner.createClusterHierarchy(graph, 10);
     auto end = std::chrono::high_resolution_clock::now();
     std::cout << "CLUSTER HIERARCHY TIME: " << std::chrono::duration_cast<std::chrono::milliseconds>(end - start) << "\n";
+    */
+
+    GraphEL graph = randomGraphEL(10, 20, std::min(WINDOW_WIDTH, WINDOW_HEIGHT));
+
+    sf::RenderWindow window(sf::VideoMode({ WINDOW_WIDTH, WINDOW_HEIGHT }), "Graph Renderer");
+    while (window.isOpen())
+    {
+        while (const std::optional event = window.pollEvent())
+        {
+            if (event->is<sf::Event::Closed>())
+                window.close();
+        }
+
+        window.clear();
+        graph.draw(window, 15.f);
+        window.display();
+    }
 }
 
 int main()

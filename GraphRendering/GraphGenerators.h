@@ -1,8 +1,9 @@
 #pragma once
 #include "Graph.h"
+#include "GraphEL.h"
 
 Graph readGraph();
 
 Graph randomGraph(int vertCount, int edgeCount, float range);
 
-std::vector<std::vector<int>> randomEdgeListGraph(int vertCount, int edgeCount);
+GraphEL randomGraphEL(int vertCount, int edgeCount, float range);

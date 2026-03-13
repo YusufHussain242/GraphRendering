@@ -4,6 +4,7 @@
 #include <random>
 #include <chrono>
 #include <vector>
+#include <set>
 
 Graph readGraph()
 {
@@ -63,9 +64,9 @@ Graph randomGraph(int vertCount, int edgeCount, float range)
     return graph;
 }
 
-std::vector<std::vector<int>> randomEdgeListGraph(int vertCount, int edgeCount)
+GraphEL randomGraphEL(int vertCount, int edgeCount, float range)
 {
-    std::vector<std::set<int>> graph(vertCount);
+    std::vector<std::set<int>> graphES(vertCount);
 
     std::mt19937 rng(std::chrono::steady_clock::now().time_since_epoch().count());
     std::uniform_int_distribution<int> vertDistribution(0, vertCount - 1);
@@ -75,17 +76,21 @@ std::vector<std::vector<int>> randomEdgeListGraph(int vertCount, int edgeCount)
     {
         int vert1 = vertDistribution(rng);
         int vert2 = vertDistribution(rng);
-        if (!graph[vert1].contains(vert2) && !graph[vert2].contains(vert1))
+        if (!graphES[vert1].contains(vert2) && !graphES[vert2].contains(vert1))
         {
-            graph[vert1].insert(vert2);
-            graph[vert2].insert(vert1);
+            graphES[vert1].insert(vert2);
+            graphES[vert2].insert(vert1);
             curEdges++;
         }
     }
 
-    std::vector<std::vector<int>> res(vertCount);
+    GraphEL graphEL(vertCount);
     for (int i = 0; i < vertCount; i++)
-        res[i] = std::vector<int>(graph[i].begin(), graph[i].end());
+        graphEL.edges[i] = std::vector<int>(graphES[i].begin(), graphES[i].end());
 
-    return res;
+    std::uniform_real_distribution<float> posDistribution(0.0f, range);
+    for (Vertex& vert : graphEL.verts)
+        vert.position = { posDistribution(rng), posDistribution(rng) };
+
+    return graphEL;
 }

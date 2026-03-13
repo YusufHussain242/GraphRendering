@@ -1,16 +1,15 @@
-#include "Graph.h"
+#include "GraphEL.h"
 
 #include <iostream>
 
-void Graph::drawEdges(sf::RenderWindow& window)
-{
-    for (int i = 0; i < edges.size(); i++)
-        for (int j = 0; j < i; j++)
-            if (edges[i][j])
-                drawLine(window, verts[i].position, verts[j].position);
+void GraphEL::drawEdges(sf::RenderWindow& window)
+{ 
+    for (int u = 0; u < edges.size(); u++)
+        for (int v : edges[u])
+            drawLine(window, verts[u].position, verts[v].position);
 }
 
-void Graph::drawVertices(sf::RenderWindow& window, const float vertRadius)
+void GraphEL::drawVertices(sf::RenderWindow& window, const float vertRadius)
 {
     for (Vertex& vert : verts)
     {
@@ -23,13 +22,13 @@ void Graph::drawVertices(sf::RenderWindow& window, const float vertRadius)
     }
 }
 
-void Graph::draw(sf::RenderWindow& window, const float vertRadius)
+void GraphEL::draw(sf::RenderWindow& window, const float vertRadius)
 {
     drawEdges(window);
     drawVertices(window, vertRadius);
 }
 
-void Graph::printStructure(bool printPositions = true, bool printEdges = true)
+void GraphEL::printStructure(bool printPositions = true, bool printEdges = true)
 {
     std::cout << "Num verts: " << verts.size() << std::endl;
 
@@ -44,6 +43,14 @@ void Graph::printStructure(bool printPositions = true, bool printEdges = true)
     if (printEdges)
     {
         std::cout << "Edges:" << std::endl;
+        for (int u = 0; u < edges.size(); u++)
+        {
+            std::cout << u << ": ";
+            for (int v : edges[u])
+                std::cout << v << " ";
+            std::cout << std::endl;
+        }
+
         for (int i = 0; i < verts.size(); i++)
         {
             std::cout << i << ": ";

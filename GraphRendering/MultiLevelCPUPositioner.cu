@@ -120,6 +120,11 @@ void MultiLevelCPUPositioner::fillClusterMap(std::vector<std::vector<int>>& grap
 	}
 }
 
+// Might be a good idea to have edge weights be max(d(center[i], center[j]), radius[i] + radius[j]))
+// although this won't work well asymetrical clusters with bad centers, need to approximate long distance
+// forces from parents instead.
+// 
+// Should be able to remove this function and do this in findCenters function
 // Could remove last cluster check here.
 void MultiLevelCPUPositioner::fillDistMatrix(std::vector<std::vector<int>>& graph, Clustering& clustering, std::vector<int>& clusterMap, std::vector<int>& visited)
 {

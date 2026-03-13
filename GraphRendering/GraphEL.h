@@ -1,12 +1,13 @@
 #pragma once
 #include "GraphUtils.h"
 #include <SFML/Graphics.hpp>
+#include <vector>
 
-class Graph
+class GraphEL
 {
 public:
     std::vector<Vertex> verts;
-    std::vector<std::vector<bool>> edges;
+    std::vector<std::vector<int>> edges;
 
 private:
     void drawEdges(sf::RenderWindow& window);
@@ -14,22 +15,22 @@ private:
     void drawVertices(sf::RenderWindow& window, const float vertRadius);
 
 public:
-    Graph() : verts(0), edges(0) {}
+    GraphEL() : verts(0), edges(0) {}
 
-    Graph(const int vertCount) : verts(vertCount), edges(vertCount, std::vector(vertCount, false)) {}
+    GraphEL(const int vertCount) : verts(vertCount), edges(vertCount) {}
 
-    Graph(const Graph &other) : verts(other.verts), edges(other.edges) {}
+    GraphEL(const GraphEL& other) : verts(other.verts), edges(other.edges) {}
 
-    Graph(Graph&& other) noexcept : verts(std::move(other.verts)), edges(std::move(other.edges)) {}
+    GraphEL(GraphEL&& other) noexcept : verts(std::move(other.verts)), edges(std::move(other.edges)) {}
 
-    Graph& operator=(const Graph& other)
+    GraphEL& operator=(const GraphEL& other)
     {
         verts = other.verts;
         edges = other.edges;
         return *this;
     }
 
-    Graph& operator=(Graph&& other) noexcept
+    GraphEL& operator=(GraphEL&& other) noexcept
     {
         verts = std::move(other.verts);
         edges = std::move(other.edges);
