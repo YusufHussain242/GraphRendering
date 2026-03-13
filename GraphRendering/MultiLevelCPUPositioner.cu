@@ -207,10 +207,10 @@ void MultiLevelCPUPositioner::positionVertices(GraphEL& graph)
 				float l = edgeLength * dist[u][v];
 				float xDiff = graph.verts[u].position.x - graph.verts[v].position.x;
 				float yDiff = graph.verts[u].position.y - graph.verts[v].position.y;
-
-				// Subtraction since we're using gradient descent
-				dx[u] -= k * (xDiff) * (1 - l / sqrtf(xDiff * xDiff + yDiff * yDiff));
-				dy[u] -= k * (yDiff) * (1 - l / sqrtf(xDiff * xDiff + yDiff * yDiff));
+				float d = sqrtf(xDiff * xDiff + yDiff * yDiff);
+				
+				dx[u] -= k * (xDiff) * (1 - l / d);
+				dy[u] -= k * (yDiff) * (1 - l / d);
 			}
 		}
 

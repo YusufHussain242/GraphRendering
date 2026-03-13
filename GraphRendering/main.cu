@@ -100,7 +100,7 @@ void performanceTests()
 
 void tempFunc()
 {
-    GraphEL graph = randomGraphEL(10, 20, std::min(WINDOW_WIDTH, WINDOW_HEIGHT));
+    GraphEL graph = serpinskyGraphEL(6, std::min(WINDOW_WIDTH, WINDOW_HEIGHT));
     /*
     GraphEL graph(10);
     int k = 1;
@@ -120,12 +120,11 @@ void tempFunc()
     */
 
     MultiLevelCPUPositioner positioner;
-    positioner.edgeLength = std::min(WINDOW_WIDTH, WINDOW_HEIGHT) / 10;
-    positioner.springStrength = 0.001;
-    positioner.iters = 50;
+    positioner.edgeLength = std::min(WINDOW_WIDTH, WINDOW_HEIGHT) / 60;
+    positioner.springStrength = 0.05;
+    positioner.iters = 500;
     
     positioner.positionVertices(graph);
-
     graph.printStructure(true, true);
     
     /*
