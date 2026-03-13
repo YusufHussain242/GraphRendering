@@ -5,17 +5,17 @@
 #include <queue>
 #include <map>
 
-Clustering MultiLevelCPUPositioner::createClusterHierarchy(std::vector<std::vector<int>>& graph, int k)
+Clustering MultiLevelCPUPositioner::createClusterHierarchy(GraphEL& graph, int k)
 {
 	Clustering clustering;
 	clustering.center = 0;
-	clustering.size = graph.size(); // This is technically not true if the graph is not fully connected.
+	clustering.size = graph.verts.size(); // This is technically not true if the graph is not fully connected.
 
-	std::vector<std::vector<int>> clusterMaps = { std::vector<int>(graph.size(), 0) };
+	std::vector<std::vector<int>> clusterMaps = { std::vector<int>(graph.verts.size(), 0) };
 
-	std::vector<int> visitedFindCenters(graph.size(), -1);
-	std::vector<int> visitedClusterMap(graph.size(), -1);
-	std::vector<int> visitedDistMatrix(graph.size(), -1);
+	std::vector<int> visitedFindCenters(graph.verts.size(), -1);
+	std::vector<int> visitedClusterMap(graph.verts.size(), -1);
+	std::vector<int> visitedDistMatrix(graph.verts.size(), -1);
 
 	std::queue<Clustering*> q;
 	q.push(&clustering);
@@ -48,7 +48,7 @@ Clustering MultiLevelCPUPositioner::createClusterHierarchy(std::vector<std::vect
 	return clustering;
 }
 
-void MultiLevelCPUPositioner::findKCenters(std::vector<std::vector<int>> &graph, Clustering &clustering, std::vector<int> &clusterMap, std::vector<int> &visited, int k)
+void MultiLevelCPUPositioner::findKCenters(GraphEL& graph, Clustering& clustering, std::vector<int>& clusterMap, std::vector<int>& visited, int k)
 {
 	clustering.clusters.emplace_back(Clustering());
 	clustering.clusters[0].center = clustering.center;
@@ -68,7 +68,7 @@ void MultiLevelCPUPositioner::findKCenters(std::vector<std::vector<int>> &graph,
 			int vert = q.front();
 			q.pop();
 
-			for (int other : graph[vert])
+			for (int other : graph.edges[vert])
 			{
 				if ((visited[other] == i) || (clusterMap[other] != clustering.center))
 					continue;
@@ -87,7 +87,7 @@ void MultiLevelCPUPositioner::findKCenters(std::vector<std::vector<int>> &graph,
 	}
 }
 
-void MultiLevelCPUPositioner::fillClusterMap(std::vector<std::vector<int>>& graph, Clustering& clustering, std::vector<int>& curClusterMap, std::vector<int>& nextClusterMap, std::vector<int>& visited)
+void MultiLevelCPUPositioner::fillClusterMap(GraphEL& graph, Clustering& clustering, std::vector<int>& curClusterMap, std::vector<int>& nextClusterMap, std::vector<int>& visited)
 {
 	int k = clustering.clusters.size();
 
@@ -108,7 +108,7 @@ void MultiLevelCPUPositioner::fillClusterMap(std::vector<std::vector<int>>& grap
 		int vert = q.front();
 		q.pop();
 
-		for (int other : graph[vert])
+		for (int other : graph.edges[vert])
 		{
 			if ((visited[other] == 0) || (curClusterMap[other] != clustering.center))
 				continue;
@@ -126,7 +126,7 @@ void MultiLevelCPUPositioner::fillClusterMap(std::vector<std::vector<int>>& grap
 // 
 // Should be able to remove this function and do this in findCenters function
 // Could remove last cluster check here.
-void MultiLevelCPUPositioner::fillDistMatrix(std::vector<std::vector<int>>& graph, Clustering& clustering, std::vector<int>& clusterMap, std::vector<int>& visited)
+void MultiLevelCPUPositioner::fillDistMatrix(GraphEL& graph, Clustering& clustering, std::vector<int>& clusterMap, std::vector<int>& visited)
 {
 	int k = clustering.clusters.size();
 	
@@ -154,7 +154,7 @@ void MultiLevelCPUPositioner::fillDistMatrix(std::vector<std::vector<int>>& grap
 					if (vert == clustering.clusters[j].center)
 						clustering.distMatrix[i][j] = distance;
 
-				for (int other : graph[vert])
+				for (int other : graph.edges[vert])
 				{
 					if ((visited[other] == i) || (clusterMap[other] != clustering.center))
 						continue;

@@ -100,28 +100,25 @@ void performanceTests()
 void tempFunc()
 {
     /*
-    // std::vector<std::vector<int>> graph = randomEdgeListGraph(1e5, 2e5);
-
-    std::vector<std::vector<int>> graph(1e3);
+    GraphEL graph(1e5);
     int k = 5;
-    for (int i = 0; i + k < graph.size(); i++)
+    for (int i = 0; i + k < graph.verts.size(); i++)
     {
         for (int j = i + 1; j < i + k; j++)
         {
-            graph[i].push_back(j);
-            graph[j].push_back(i);
+            graph.edges[i].push_back(j);
+            graph.edges[j].push_back(i);
         }
     }
+    */
+
+    GraphEL graph = randomGraphEL(1e3, 2e3, std::min(WINDOW_WIDTH, WINDOW_HEIGHT));
     
     MultiLevelCPUPositioner positioner;
-    
     auto start = std::chrono::high_resolution_clock::now();
     Clustering clustering = positioner.createClusterHierarchy(graph, 10);
     auto end = std::chrono::high_resolution_clock::now();
     std::cout << "CLUSTER HIERARCHY TIME: " << std::chrono::duration_cast<std::chrono::milliseconds>(end - start) << "\n";
-    */
-
-    GraphEL graph = randomGraphEL(10, 20, std::min(WINDOW_WIDTH, WINDOW_HEIGHT));
 
     sf::RenderWindow window(sf::VideoMode({ WINDOW_WIDTH, WINDOW_HEIGHT }), "Graph Renderer");
     while (window.isOpen())
@@ -133,7 +130,7 @@ void tempFunc()
         }
 
         window.clear();
-        graph.draw(window, 15.f);
+        graph.draw(window, 10.f);
         window.display();
     }
 }
