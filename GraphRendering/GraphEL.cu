@@ -50,14 +50,5 @@ void GraphEL::printStructure(bool printPositions = true, bool printEdges = true)
                 std::cout << v << " ";
             std::cout << std::endl;
         }
-
-        for (int i = 0; i < verts.size(); i++)
-        {
-            std::cout << i << ": ";
-            for (int j = 0; j < verts.size(); j++)
-                if (edges[i][j])
-                    std::cout << j << " ";
-            std::cout << std::endl;
-        }
     }
 }

@@ -18,6 +18,10 @@ struct Clustering
 class MultiLevelCPUPositioner
 {
 public:
+	float iters;
+	float edgeLength;
+	float springStrength;
+
 	void positionVertices(GraphEL& graph);
 
 	std::string getConfigStr();

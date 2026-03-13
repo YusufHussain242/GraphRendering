@@ -4,6 +4,7 @@
 #include <vector>
 #include <queue>
 #include <map>
+#include <algorithm>
 
 Clustering MultiLevelCPUPositioner::createClusterHierarchy(GraphEL& graph, int k)
 {
@@ -163,6 +164,60 @@ void MultiLevelCPUPositioner::fillDistMatrix(GraphEL& graph, Clustering& cluster
 				}
 			}
 			distance++;
+		}
+	}
+}
+
+std::vector<std::vector<float>> floydWarshall(GraphEL& graph)
+{
+	std::vector<std::vector<float>> dist(graph.verts.size(), std::vector<float>(graph.verts.size(), INFINITY));
+
+	for (int u = 0; u < graph.verts.size(); u++)
+		for (int v : graph.edges[u])
+			dist[u][v] = 1.f;
+
+	for (int k = 0; k < graph.verts.size(); k++)
+		for (int i = 0; i < graph.verts.size(); i++)
+			for (int j = 0; j < graph.verts.size(); j++)
+				if (dist[i][k] != INFINITY && dist[k][j] != INFINITY)
+					dist[i][j] = std::min(dist[i][j], dist[i][k] + dist[k][j]);
+
+	return dist;
+}
+
+void MultiLevelCPUPositioner::positionVertices(GraphEL& graph)
+{
+	std::vector<std::vector<float>> dist = floydWarshall(graph);
+
+	std::vector<float> dx(graph.verts.size());
+	std::vector<float> dy(graph.verts.size());
+
+	for (int i = 0; i < iters; i++)
+	{
+		std::fill(dx.begin(), dx.end(), 0);
+		std::fill(dy.begin(), dy.end(), 0);
+		for (int u = 0; u < graph.verts.size(); u++)
+		{
+			for (int v = 0; v < graph.verts.size(); v++)
+			{
+				if (u == v)
+					continue;
+
+				float k = springStrength / (dist[u][v] * dist[u][v]);
+				float l = edgeLength * dist[u][v];
+				float xDiff = graph.verts[u].position.x - graph.verts[v].position.x;
+				float yDiff = graph.verts[u].position.y - graph.verts[v].position.y;
+
+				// Subtraction since we're using gradient descent
+				dx[u] -= k * (xDiff) * (1 - l / sqrtf(xDiff * xDiff + yDiff * yDiff));
+				dy[u] -= k * (yDiff) * (1 - l / sqrtf(xDiff * xDiff + yDiff * yDiff));
+			}
+		}
+
+		for (int u = 0; u < graph.verts.size(); u++)
+		{
+			graph.verts[u].position.x += dx[u];
+			graph.verts[u].position.y += dy[u];
 		}
 	}
 }

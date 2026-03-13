@@ -9,6 +9,7 @@
 #include "cudaUtilityFuncs.h"
 
 #include <iostream>
+#include <random>
 
 const int WINDOW_WIDTH = 1000;
 const int WINDOW_HEIGHT = 1000;
@@ -99,26 +100,40 @@ void performanceTests()
 
 void tempFunc()
 {
+    GraphEL graph = randomGraphEL(10, 20, std::min(WINDOW_WIDTH, WINDOW_HEIGHT));
     /*
-    GraphEL graph(1e5);
-    int k = 5;
+    GraphEL graph(10);
+    int k = 1;
     for (int i = 0; i + k < graph.verts.size(); i++)
     {
-        for (int j = i + 1; j < i + k; j++)
+        for (int j = i + 1; j <= i + k; j++)
         {
             graph.edges[i].push_back(j);
             graph.edges[j].push_back(i);
         }
     }
+
+    std::mt19937 rng(std::chrono::steady_clock::now().time_since_epoch().count());
+    std::uniform_real_distribution<float> posDistribution(0.0f, std::min(WINDOW_WIDTH, WINDOW_HEIGHT));
+    for (Vertex& vert : graph.verts)
+        vert.position = { posDistribution(rng), posDistribution(rng) };
     */
 
-    GraphEL graph = randomGraphEL(1e3, 2e3, std::min(WINDOW_WIDTH, WINDOW_HEIGHT));
-    
     MultiLevelCPUPositioner positioner;
+    positioner.edgeLength = std::min(WINDOW_WIDTH, WINDOW_HEIGHT) / 10;
+    positioner.springStrength = 0.001;
+    positioner.iters = 50;
+    
+    positioner.positionVertices(graph);
+
+    graph.printStructure(true, true);
+    
+    /*
     auto start = std::chrono::high_resolution_clock::now();
     Clustering clustering = positioner.createClusterHierarchy(graph, 10);
     auto end = std::chrono::high_resolution_clock::now();
     std::cout << "CLUSTER HIERARCHY TIME: " << std::chrono::duration_cast<std::chrono::milliseconds>(end - start) << "\n";
+    */
 
     sf::RenderWindow window(sf::VideoMode({ WINDOW_WIDTH, WINDOW_HEIGHT }), "Graph Renderer");
     while (window.isOpen())
