@@ -100,39 +100,17 @@ void performanceTests()
 
 void tempFunc()
 {
-    GraphEL graph = serpinskyGraphEL(6, std::min(WINDOW_WIDTH, WINDOW_HEIGHT));
-    /*
-    GraphEL graph(10);
-    int k = 1;
-    for (int i = 0; i + k < graph.verts.size(); i++)
-    {
-        for (int j = i + 1; j <= i + k; j++)
-        {
-            graph.edges[i].push_back(j);
-            graph.edges[j].push_back(i);
-        }
-    }
-
-    std::mt19937 rng(std::chrono::steady_clock::now().time_since_epoch().count());
-    std::uniform_real_distribution<float> posDistribution(0.0f, std::min(WINDOW_WIDTH, WINDOW_HEIGHT));
-    for (Vertex& vert : graph.verts)
-        vert.position = { posDistribution(rng), posDistribution(rng) };
-    */
+    GraphEL graph = serpinskyGraphEL(8, std::min(WINDOW_WIDTH, WINDOW_HEIGHT));
 
     MultiLevelCPUPositioner positioner;
-    positioner.edgeLength = std::min(WINDOW_WIDTH, WINDOW_HEIGHT) / 60;
-    positioner.springStrength = 0.05;
-    positioner.iters = 500;
+    positioner.iters = 100;
+    positioner.clusterNumber = 10;
+    positioner.edgeLength = std::min(WINDOW_WIDTH, WINDOW_HEIGHT) / 300;
+    positioner.springStrength = 0.2;
+    positioner.centerCoords = { WINDOW_WIDTH / 2, WINDOW_HEIGHT / 2 };
     
     positioner.positionVertices(graph);
-    graph.printStructure(true, true);
-    
-    /*
-    auto start = std::chrono::high_resolution_clock::now();
-    Clustering clustering = positioner.createClusterHierarchy(graph, 10);
-    auto end = std::chrono::high_resolution_clock::now();
-    std::cout << "CLUSTER HIERARCHY TIME: " << std::chrono::duration_cast<std::chrono::milliseconds>(end - start) << "\n";
-    */
+    // graph.printStructure(true, true);
 
     sf::RenderWindow window(sf::VideoMode({ WINDOW_WIDTH, WINDOW_HEIGHT }), "Graph Renderer");
     while (window.isOpen())
@@ -144,7 +122,7 @@ void tempFunc()
         }
 
         window.clear();
-        graph.draw(window, 10.f);
+        graph.draw(window, 5.f);
         window.display();
     }
 }

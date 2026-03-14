@@ -15,7 +15,7 @@ void GraphEL::drawVertices(sf::RenderWindow& window, const float vertRadius)
     {
         sf::CircleShape circle(vertRadius);
         circle.setPointCount(100);
-        circle.setFillColor(sf::Color(255, 0, 0));
+        circle.setFillColor(vert.color);
         circle.setPosition(vert.position);
         circle.setOrigin({ vertRadius, vertRadius });
         window.draw(circle);

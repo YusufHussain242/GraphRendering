@@ -2,27 +2,34 @@
 #include "IGraphPositioner.h"
 #include "GraphEL.h"
 
+#include <SFML/Graphics.hpp>
 #include <string>
 
 struct Clustering
 {
 	int center;
-
 	int size = 0;
-
+	sf::Vector2f position;
 	std::vector<Clustering> clusters;
-
 	std::vector<std::vector<int>> distMatrix;
 };
 
 class MultiLevelCPUPositioner
 {
 public:
-	float iters;
+	int iters;
+	int clusterNumber;
 	float edgeLength;
 	float springStrength;
+	sf::Vector2f centerCoords;
 
 	void positionVertices(GraphEL& graph);
+	
+	void positionClusters(Clustering& clustering);
+
+	void positionSubClusters(Clustering& clustering);
+
+	void positionVerticesEads(GraphEL& graph);
 
 	std::string getConfigStr();
 
