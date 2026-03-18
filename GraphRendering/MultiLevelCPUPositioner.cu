@@ -201,7 +201,7 @@ std::vector<std::vector<float>> floydWarshall(GraphEL& graph)
 	return dist;
 }
 
-void MultiLevelCPUPositioner::positionVerticesEads(GraphEL& graph)
+void MultiLevelCPUPositioner::positionVerticesKK(GraphEL& graph)
 {
 	std::vector<std::vector<float>> dist = floydWarshall(graph);
 

@@ -5,6 +5,7 @@
 #include "EadsPositioner.h"
 #include "EadsPositioner2.h"
 #include "MultiLevelCPUPositioner.h"
+#include "CoarseningPositioner.h"
 #include "PerformanceTests.h"
 #include "cudaUtilityFuncs.h"
 
@@ -100,17 +101,40 @@ void performanceTests()
 
 void tempFunc()
 {
-    GraphEL graph = serpinskyGraphEL(8, std::min(WINDOW_WIDTH, WINDOW_HEIGHT));
+    GraphEL graph = serpinskyGraphEL(5, std::min(WINDOW_WIDTH, WINDOW_HEIGHT));
 
     MultiLevelCPUPositioner positioner;
-    positioner.iters = 100;
+    positioner.iters = 200;
     positioner.clusterNumber = 10;
-    positioner.edgeLength = std::min(WINDOW_WIDTH, WINDOW_HEIGHT) / 300;
+    positioner.edgeLength = std::min(WINDOW_WIDTH, WINDOW_HEIGHT) / 40;
     positioner.springStrength = 0.2;
     positioner.centerCoords = { WINDOW_WIDTH / 2, WINDOW_HEIGHT / 2 };
     
-    positioner.positionVertices(graph);
-    // graph.printStructure(true, true);
+    positioner.positionVerticesKK(graph);
+    
+    CoarseningPositioner positioner2;
+    const auto filtration = positioner2.createFiltration(graph);
+    const auto neighbourhoods = positioner2.findNeighbourhoods(graph, filtration);
+
+    std::vector<std::set<int>> xFiltration(filtration.size(), std::set<int>());
+    for (int layer = filtration.size() - 1; layer >= 0; layer--)
+    {
+        for (int vert : filtration[layer])
+        {
+			bool shouldAdd = true;
+            for (int i = layer + 1; i < filtration.size(); i++)
+                if (filtration[i].contains(vert))
+                    shouldAdd = false;
+
+            if (shouldAdd)
+                xFiltration[layer].insert(vert);
+        }
+    }
+
+    int vert = *(xFiltration[2].begin());
+    graph.verts[vert].color = { 0, 0, 255 };
+    for (auto [other, dist] : neighbourhoods[vert])
+        graph.verts[other].color = { 255, 0, 0 };
 
     sf::RenderWindow window(sf::VideoMode({ WINDOW_WIDTH, WINDOW_HEIGHT }), "Graph Renderer");
     while (window.isOpen())

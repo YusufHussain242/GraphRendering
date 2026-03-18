@@ -29,7 +29,7 @@ public:
 
 	void positionSubClusters(Clustering& clustering);
 
-	void positionVerticesEads(GraphEL& graph);
+	void positionVerticesKK(GraphEL& graph);
 
 	std::string getConfigStr();
 
