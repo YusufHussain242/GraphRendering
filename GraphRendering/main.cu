@@ -115,6 +115,7 @@ void tempFunc()
     CoarseningPositioner positioner2;
     const auto filtration = positioner2.createFiltration(graph);
     const auto neighbourhoods = positioner2.findNeighbourhoods(graph, filtration);
+    const auto parents = positioner2.findParentNodes(graph, filtration);
 
     std::vector<std::set<int>> xFiltration(filtration.size(), std::set<int>());
     for (int layer = filtration.size() - 1; layer >= 0; layer--)
@@ -131,10 +132,18 @@ void tempFunc()
         }
     }
 
-    int vert = *(xFiltration[2].begin());
+    int vert = *(xFiltration[1].begin());
     graph.verts[vert].color = { 0, 0, 255 };
     for (auto [other, dist] : neighbourhoods[vert])
         graph.verts[other].color = { 255, 0, 0 };
+
+    for (int parent : parents)
+        std::cout << parent << " ";
+    std::cout << "\n";
+
+    for (int i = 0; i < graph.verts.size(); i++)
+        if (parents[i] == vert)
+            graph.verts[i].color = { 0, 255, 0 };        
 
     sf::RenderWindow window(sf::VideoMode({ WINDOW_WIDTH, WINDOW_HEIGHT }), "Graph Renderer");
     while (window.isOpen())

@@ -11,6 +11,8 @@ std::vector<std::set<int>> CoarseningPositioner::createFiltration(const GraphEL&
 	for (int i = 0; i < graph.verts.size(); i++)
 		vertPool.insert(i);
 
+	res.push_back(vertPool);
+
 	while (res.empty() || res[res.size() - 1].size() > 1)
 	{
 		res.push_back(std::set<int>());
@@ -117,5 +119,46 @@ std::vector<std::vector<std::pair<int,int>>> CoarseningPositioner::findNeighbour
 		}
 	}
 	
+	return res;
+}
+
+std::vector<int> CoarseningPositioner::findParentNodes(const GraphEL& graph, const std::vector<std::set<int>>& filtration)
+{
+	std::vector<int> res(graph.verts.size(), -1);
+
+	std::vector<bool> visited(graph.verts.size(), false);
+
+	for (int layer = filtration.size() - 1; layer >= 0; layer--)
+	{
+		std::queue<int> q;
+		std::vector<int> parentMap(graph.verts.size(), -1);
+
+		for (int vert : filtration[layer])
+		{
+			q.push(vert);
+			visited[vert] = true;
+			parentMap[vert] = vert;
+		}
+
+		while (!q.empty())
+		{
+			int cur = q.front();
+			q.pop();
+
+			if (!visited[cur])
+				res[cur] = parentMap[cur];
+
+			for (int other : graph.edges[cur])
+			{
+				if (parentMap[other] != -1)
+					continue;
+
+				q.push(other);
+				parentMap[other] = parentMap[cur];
+			}
+		}
+
+	}
+
 	return res;
 }
