@@ -2,6 +2,7 @@
 
 #include <queue>
 #include <random>
+#include <algorithm>
 #include <iostream>
 
 std::vector<std::set<int>> CoarseningPositioner::createFiltration(const GraphEL& graph)
@@ -63,7 +64,21 @@ std::vector<std::set<int>> CoarseningPositioner::createFiltration(const GraphEL&
 	return res;
 }
 
-std::vector<std::vector<std::pair<int,int>>> CoarseningPositioner::findNeighbourhoods(const GraphEL& graph, const std::vector<std::set<int>>& filtration)
+std::vector<int> getVertexDepths(const GraphEL& graph, const std::vector<std::set<int>>& filtration)
+{
+	std::vector<int> res(graph.verts.size(), 0);
+
+	for (int layer = 0; layer < filtration.size(); layer++)
+	{
+		for (int vert : filtration[layer])
+			res[vert] = std::max(res[vert], layer);
+	}
+
+	return res;
+}
+
+// This function can be optimised.
+std::vector<std::vector<std::vector<std::pair<int,int>>>> CoarseningPositioner::findNeighbourhoods(const GraphEL& graph, const std::vector<std::set<int>>& filtration)
 {
 	// We want each the total number of neighbours at each layer to be constant.
 	// We want the number of neighbours per vertex to be avg_deg(G) at the finest layer.
@@ -74,26 +89,25 @@ std::vector<std::vector<std::pair<int,int>>> CoarseningPositioner::findNeighbour
 	for (std::vector<int> edgeList : graph.edges)
 		edgeCount += edgeList.size();
 
-	std::vector<std::vector<std::pair<int, int>>> res(graph.verts.size(), std::vector<std::pair<int,int>>());
-	std::vector<bool> visited(graph.verts.size(), false);
-	std::vector<int> visitedBFS(graph.verts.size(), -1);
+	std::vector<int> vertexDepths = getVertexDepths(graph, filtration);
+
+	std::vector<std::vector<std::vector<std::pair<int, int>>>> res(graph.verts.size());
+	for (int v = 0; v < res.size(); v++)
+		res[v] = std::vector<std::vector<std::pair<int, int>>>(vertexDepths[v] + 1, std::vector<std::pair<int, int>>());
 
 	for (int layer = filtration.size() - 1; layer >= 0; layer--)
 	{
-		int numNeighbours = (edgeCount + filtration[layer].size() - 1) / filtration[layer].size();
+		std::vector<int> visitedBFS(graph.verts.size(), -1);
+
+		int numNeighbours = neighbourMult * (edgeCount + filtration[layer].size() - 1) / filtration[layer].size();
 		for (int vertex : filtration[layer])
 		{
-			if (visited[vertex])
-				continue;
-
-			visited[vertex] = true;
-
 			std::queue<int> q;
 			q.push(vertex);
 			visitedBFS[vertex] = vertex;
 
 			int dist = 0;
-			while (!q.empty() && res[vertex].size() < numNeighbours)
+			while (!q.empty() && res[vertex][layer].size() < numNeighbours)
 			{
 				int curSize = q.size();
 				for (int t = 0; t < curSize; t++)
@@ -102,9 +116,9 @@ std::vector<std::vector<std::pair<int,int>>> CoarseningPositioner::findNeighbour
 					q.pop();
 
 					if (dist > 0 && filtration[layer].contains(cur))
-						res[vertex].emplace_back(cur, dist);
+						res[vertex][layer].emplace_back(cur, dist);
 					
-					if (res[vertex].size() >= numNeighbours)
+					if (res[vertex][layer].size() >= numNeighbours)
 						break;
 
 					for (int other : graph.edges[cur])
@@ -171,9 +185,9 @@ void CoarseningPositioner::positionVertices(GraphEL& graph)
 	const auto neighbourhoods = findNeighbourhoods(graph, filtration);
 	const auto parents = findParentNodes(graph, filtration);
 
-	std::vector<bool> fixed(graph.verts.size(), false);
-	std::vector<int> dx(graph.verts.size(), 0);
-	std::vector<int> dy(graph.verts.size(), 0);
+	std::vector<bool> placed(graph.verts.size(), false);
+	std::vector<float> dx(graph.verts.size(), 0.f);
+	std::vector <float> dy(graph.verts.size(), 0.f);
 
 	std::mt19937 rng(std::chrono::steady_clock::now().time_since_epoch().count());
 	std::uniform_real_distribution<float> posDistribution(-randRange, randRange);
@@ -182,31 +196,30 @@ void CoarseningPositioner::positionVertices(GraphEL& graph)
 	{
 		for (int vert : filtration[layer])
 		{
-			if (fixed[vert])
+			if (placed[vert])
 				continue;
 
-			if (parents[vert] > 0)
+			if (parents[vert] >= 0)
 			{
 				graph.verts[vert].position.x = graph.verts[parents[vert]].position.x + posDistribution(rng);
 				graph.verts[vert].position.y = graph.verts[parents[vert]].position.y + posDistribution(rng);
 			}
 			else
 				graph.verts[vert].position = centerCoords + sf::Vector2f(posDistribution(rng), posDistribution(rng));
+
+			placed[vert] = true;
 		}
 
 		for (int t = 0; t < iters; t++)
 		{
 			for (int vert : filtration[layer])
 			{
-				if (fixed[vert])
-					continue;
-
-				for (const auto [other, dist] : neighbourhoods[vert])
+				for (const auto [other, dist] : neighbourhoods[vert][layer])
 				{
 					int avgDist = 1 << layer;
 					float normalizedDist = dist / avgDist;
 
-					float k = springStrength / (normalizedDist * normalizedDist);
+					float k = springStrength / (dist * dist);
 					float l = edgeLength * dist;
 					float xDiff = graph.verts[vert].position.x - graph.verts[other].position.x;
 					float yDiff = graph.verts[vert].position.y - graph.verts[other].position.y;
@@ -219,9 +232,6 @@ void CoarseningPositioner::positionVertices(GraphEL& graph)
 
 			for (int vert : filtration[layer])
 			{
-				if (fixed[vert])
-					continue;
-
 				graph.verts[vert].position.x += dx[vert];
 				graph.verts[vert].position.y += dy[vert];
 
@@ -229,8 +239,5 @@ void CoarseningPositioner::positionVertices(GraphEL& graph)
 				dy[vert] = 0;
 			}
 		}
-
-		for (int vert : filtration[layer])
-			fixed[vert] = true;
 	}
 }

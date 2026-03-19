@@ -101,7 +101,7 @@ void performanceTests()
 
 void tempFunc()
 {
-    GraphEL graph = serpinskyGraphEL(5, std::min(WINDOW_WIDTH, WINDOW_HEIGHT));
+    GraphEL graph = serpinskyGraphEL(4, std::min(WINDOW_WIDTH, WINDOW_HEIGHT));
 
     /*
     MultiLevelCPUPositioner positioner;
@@ -115,13 +115,23 @@ void tempFunc()
     */
 
     CoarseningPositioner positioner;
-    positioner.iters = 300;
-    positioner.edgeLength = std::min(WINDOW_WIDTH, WINDOW_HEIGHT) / 40;
+    positioner.iters = 200;
+    positioner.neighbourMult = 2;
+    positioner.edgeLength = std::min(WINDOW_WIDTH, WINDOW_HEIGHT) / 80;
     positioner.springStrength = 0.2f;
     positioner.randRange = 10.f;
     positioner.centerCoords = { WINDOW_WIDTH / 2, WINDOW_HEIGHT / 2 };
 
     positioner.positionVertices(graph);
+
+    const auto filtration = positioner.createFiltration(graph);
+    const auto neighbourhoods = positioner.findNeighbourhoods(graph, filtration);
+
+    int vert = 0;
+    graph.verts[vert].color = { 0, 255, 0 };
+
+    for (auto [other, dist] : neighbourhoods[vert][0])
+        graph.verts[other].color = { 255, 0, 0 };
 
     sf::RenderWindow window(sf::VideoMode({ WINDOW_WIDTH, WINDOW_HEIGHT }), "Graph Renderer");
     while (window.isOpen())

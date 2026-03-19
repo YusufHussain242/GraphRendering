@@ -7,14 +7,16 @@
 class CoarseningPositioner
 {
 private:
+public:
 	std::vector<std::set<int>> createFiltration(const GraphEL& graph);
 
-	std::vector<std::vector<std::pair<int, int>>> findNeighbourhoods(const GraphEL& graph, const std::vector<std::set<int>>& filtration);
+	std::vector<std::vector<std::vector<std::pair<int, int>>>> findNeighbourhoods(const GraphEL& graph, const std::vector<std::set<int>>& filtration);
 
 	std::vector<int> findParentNodes(const GraphEL& graph, const std::vector<std::set<int>>& filtration);
 
 public:
 	int iters;
+	int neighbourMult;
 	float randRange;
 	float springStrength;
 	float edgeLength;
