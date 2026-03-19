@@ -103,6 +103,7 @@ void tempFunc()
 {
     GraphEL graph = serpinskyGraphEL(5, std::min(WINDOW_WIDTH, WINDOW_HEIGHT));
 
+    /*
     MultiLevelCPUPositioner positioner;
     positioner.iters = 200;
     positioner.clusterNumber = 10;
@@ -111,39 +112,16 @@ void tempFunc()
     positioner.centerCoords = { WINDOW_WIDTH / 2, WINDOW_HEIGHT / 2 };
     
     positioner.positionVerticesKK(graph);
-    
-    CoarseningPositioner positioner2;
-    const auto filtration = positioner2.createFiltration(graph);
-    const auto neighbourhoods = positioner2.findNeighbourhoods(graph, filtration);
-    const auto parents = positioner2.findParentNodes(graph, filtration);
+    */
 
-    std::vector<std::set<int>> xFiltration(filtration.size(), std::set<int>());
-    for (int layer = filtration.size() - 1; layer >= 0; layer--)
-    {
-        for (int vert : filtration[layer])
-        {
-			bool shouldAdd = true;
-            for (int i = layer + 1; i < filtration.size(); i++)
-                if (filtration[i].contains(vert))
-                    shouldAdd = false;
+    CoarseningPositioner positioner;
+    positioner.iters = 300;
+    positioner.edgeLength = std::min(WINDOW_WIDTH, WINDOW_HEIGHT) / 40;
+    positioner.springStrength = 0.2f;
+    positioner.randRange = 10.f;
+    positioner.centerCoords = { WINDOW_WIDTH / 2, WINDOW_HEIGHT / 2 };
 
-            if (shouldAdd)
-                xFiltration[layer].insert(vert);
-        }
-    }
-
-    int vert = *(xFiltration[1].begin());
-    graph.verts[vert].color = { 0, 0, 255 };
-    for (auto [other, dist] : neighbourhoods[vert])
-        graph.verts[other].color = { 255, 0, 0 };
-
-    for (int parent : parents)
-        std::cout << parent << " ";
-    std::cout << "\n";
-
-    for (int i = 0; i < graph.verts.size(); i++)
-        if (parents[i] == vert)
-            graph.verts[i].color = { 0, 255, 0 };        
+    positioner.positionVertices(graph);
 
     sf::RenderWindow window(sf::VideoMode({ WINDOW_WIDTH, WINDOW_HEIGHT }), "Graph Renderer");
     while (window.isOpen())

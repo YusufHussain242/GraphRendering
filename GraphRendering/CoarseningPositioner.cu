@@ -1,6 +1,8 @@
 #include "CoarseningPositioner.h"
 
 #include <queue>
+#include <random>
+#include <iostream>
 
 std::vector<std::set<int>> CoarseningPositioner::createFiltration(const GraphEL& graph)
 {
@@ -161,4 +163,74 @@ std::vector<int> CoarseningPositioner::findParentNodes(const GraphEL& graph, con
 	}
 
 	return res;
+}
+
+void CoarseningPositioner::positionVertices(GraphEL& graph)
+{
+	const auto filtration = createFiltration(graph);
+	const auto neighbourhoods = findNeighbourhoods(graph, filtration);
+	const auto parents = findParentNodes(graph, filtration);
+
+	std::vector<bool> fixed(graph.verts.size(), false);
+	std::vector<int> dx(graph.verts.size(), 0);
+	std::vector<int> dy(graph.verts.size(), 0);
+
+	std::mt19937 rng(std::chrono::steady_clock::now().time_since_epoch().count());
+	std::uniform_real_distribution<float> posDistribution(-randRange, randRange);
+
+	for (int layer = filtration.size() - 1; layer >= 0; layer--)
+	{
+		for (int vert : filtration[layer])
+		{
+			if (fixed[vert])
+				continue;
+
+			if (parents[vert] > 0)
+			{
+				graph.verts[vert].position.x = graph.verts[parents[vert]].position.x + posDistribution(rng);
+				graph.verts[vert].position.y = graph.verts[parents[vert]].position.y + posDistribution(rng);
+			}
+			else
+				graph.verts[vert].position = centerCoords + sf::Vector2f(posDistribution(rng), posDistribution(rng));
+		}
+
+		for (int t = 0; t < iters; t++)
+		{
+			for (int vert : filtration[layer])
+			{
+				if (fixed[vert])
+					continue;
+
+				for (const auto [other, dist] : neighbourhoods[vert])
+				{
+					int avgDist = 1 << layer;
+					float normalizedDist = dist / avgDist;
+
+					float k = springStrength / (normalizedDist * normalizedDist);
+					float l = edgeLength * dist;
+					float xDiff = graph.verts[vert].position.x - graph.verts[other].position.x;
+					float yDiff = graph.verts[vert].position.y - graph.verts[other].position.y;
+					float d = sqrtf(xDiff * xDiff + yDiff * yDiff);
+
+					dx[vert] -= k * (xDiff) * (1 - l / d);
+					dy[vert] -= k * (yDiff) * (1 - l / d);
+				}
+			}
+
+			for (int vert : filtration[layer])
+			{
+				if (fixed[vert])
+					continue;
+
+				graph.verts[vert].position.x += dx[vert];
+				graph.verts[vert].position.y += dy[vert];
+
+				dx[vert] = 0;
+				dy[vert] = 0;
+			}
+		}
+
+		for (int vert : filtration[layer])
+			fixed[vert] = true;
+	}
 }
