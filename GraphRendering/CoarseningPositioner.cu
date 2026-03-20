@@ -219,7 +219,7 @@ void CoarseningPositioner::positionVertices(GraphEL& graph)
 					int avgDist = 1 << layer;
 					float normalizedDist = dist / avgDist;
 
-					float k = springStrength / (dist * dist);
+					float k = springStrength / (normalizedDist * normalizedDist);
 					float l = edgeLength * dist;
 					float xDiff = graph.verts[vert].position.x - graph.verts[other].position.x;
 					float yDiff = graph.verts[vert].position.y - graph.verts[other].position.y;

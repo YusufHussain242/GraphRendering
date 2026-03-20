@@ -1,2 +1,3 @@
-Sirpinsky generator
-Make eads proper
+Do more iterations on coarser graphs (Use threasholding for dynamic stopping)
+
+Have higher spring strength for coarser graphs
