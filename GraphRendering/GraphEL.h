@@ -40,4 +40,6 @@ public:
     void draw(sf::RenderWindow& window, const float vertRadius);
 
     void printStructure(bool printPositions, bool printEdges);
+
+    void frameGraph(float width, float height, float margin);
 };

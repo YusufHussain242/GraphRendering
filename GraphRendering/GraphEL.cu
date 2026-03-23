@@ -52,3 +52,34 @@ void GraphEL::printStructure(bool printPositions = true, bool printEdges = true)
         }
     }
 }
+
+void GraphEL::frameGraph(float width, float height, float margin)
+{
+    float minX = INFINITY;
+    float maxX = -INFINITY;
+    float minY = INFINITY;
+    float maxY = -INFINITY;
+    
+    for (const Vertex& vert : verts)
+    {
+        minX = std::min(minX, vert.position.x);
+        maxX = std::max(maxX, vert.position.x);
+        minY = std::min(minY, vert.position.y);
+        maxY = std::max(maxY, vert.position.y);
+    }
+
+    for (Vertex& vert : verts)
+    {
+        vert.position.x -= minX;
+        vert.position.y -= minY;
+    }
+
+    maxX -= minX;
+    maxY -= minY;
+
+    for (Vertex& vert : verts)
+    {
+        vert.position.x = margin + (width - 2 * margin) * (vert.position.x / maxX);
+        vert.position.y = margin + (height - 2 * margin) * (vert.position.y / maxY);
+    }
+}

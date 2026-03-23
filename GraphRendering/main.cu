@@ -101,7 +101,7 @@ void performanceTests()
 
 void tempFunc()
 {
-    GraphEL graph = serpinskyGraphEL(9, std::min(WINDOW_WIDTH, WINDOW_HEIGHT));
+    GraphEL graph = serpinskyGraphEL(5, std::min(WINDOW_WIDTH, WINDOW_HEIGHT));
 
     /*
     MultiLevelCPUPositioner positioner;
@@ -116,14 +116,15 @@ void tempFunc()
 
     CoarseningPositioner positioner;
     positioner.iters = 200;
-    positioner.neighbourhoodSize = 20;
-    positioner.edgeLength = std::min(WINDOW_WIDTH, WINDOW_HEIGHT) / 700;
+    positioner.neighbourhoodSize = 30;
+    positioner.edgeLength = 10.f;
     positioner.springStrength = 0.2f;
     positioner.randRange = 10.f;
     positioner.centerCoords = { WINDOW_WIDTH / 2, WINDOW_HEIGHT / 2 };
-    
 
     positioner.positionVertices(graph);
+
+    graph.frameGraph(WINDOW_WIDTH, WINDOW_HEIGHT, 100.f);
 
     /*
     CoarseningPositioner positioner2;
@@ -165,7 +166,7 @@ void tempFunc()
         }
 
         window.clear();
-        graph.draw(window, 0);
+        graph.draw(window, 0.f);
         window.display();
     }
 }
