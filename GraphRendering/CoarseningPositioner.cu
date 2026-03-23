@@ -1,6 +1,7 @@
 #include "CoarseningPositioner.h"
 
 #include <queue>
+#include <chrono>
 #include <random>
 #include <algorithm>
 #include <iostream>
@@ -77,14 +78,8 @@ std::vector<int> getVertexDepths(const GraphEL& graph, const std::vector<std::se
 	return res;
 }
 
-// This function can be optimised.
-std::vector<std::vector<std::vector<std::pair<int,int>>>> CoarseningPositioner::findNeighbourhoods(const GraphEL& graph, const std::vector<std::set<int>>& filtration)
+std::vector<std::vector<std::vector<std::pair<int, int>>>> CoarseningPositioner::findNeighbourhoods(const GraphEL& graph, const std::vector<std::set<int>>& filtration)
 {
-	// We want each the total number of neighbours at each layer to be constant.
-	// We want the number of neighbours per vertex to be avg_deg(G) at the finest layer.
-	// So the total number of neighbours in the finest layer is |V| * avg_deg(G) = |E|.
-	// Hnece, the number of neighers per vertex in layer i is: |E| / |V_i|.
-
 	int edgeCount = 0;
 	for (std::vector<int> edgeList : graph.edges)
 		edgeCount += edgeList.size();
@@ -99,7 +94,6 @@ std::vector<std::vector<std::vector<std::pair<int,int>>>> CoarseningPositioner::
 	{
 		std::vector<int> visitedBFS(graph.verts.size(), -1);
 
-		int numNeighbours = neighbourMult * (edgeCount + filtration[layer].size() - 1) / filtration[layer].size();
 		for (int vertex : filtration[layer])
 		{
 			std::queue<int> q;
@@ -107,7 +101,7 @@ std::vector<std::vector<std::vector<std::pair<int,int>>>> CoarseningPositioner::
 			visitedBFS[vertex] = vertex;
 
 			int dist = 0;
-			while (!q.empty() && res[vertex][layer].size() < numNeighbours)
+			while (!q.empty() && res[vertex][layer].size() < neighbourhoodSize)
 			{
 				int curSize = q.size();
 				for (int t = 0; t < curSize; t++)
@@ -117,8 +111,8 @@ std::vector<std::vector<std::vector<std::pair<int,int>>>> CoarseningPositioner::
 
 					if (dist > 0 && filtration[layer].contains(cur))
 						res[vertex][layer].emplace_back(cur, dist);
-					
-					if (res[vertex][layer].size() >= numNeighbours)
+
+					if (res[vertex][layer].size() >= neighbourhoodSize)
 						break;
 
 					for (int other : graph.edges[cur])
@@ -131,6 +125,79 @@ std::vector<std::vector<std::vector<std::pair<int,int>>>> CoarseningPositioner::
 					}
 				}
 				dist++;
+			}
+		}
+	}
+
+	return res;
+}
+
+std::vector<std::vector<std::vector<std::pair<int,int>>>> CoarseningPositioner::fastFindNeighbourhoods(const GraphEL& graph, const std::vector<std::set<int>>& filtration)
+{
+	int edgeCount = 0;
+	for (std::vector<int> edgeList : graph.edges)
+		edgeCount += edgeList.size();
+
+	std::vector<int> vertexDepths = getVertexDepths(graph, filtration);
+
+	std::vector<std::vector<std::vector<std::pair<int, int>>>> res(graph.verts.size());
+	for (int v = 0; v < res.size(); v++)
+		res[v] = std::vector<std::vector<std::pair<int, int>>>(vertexDepths[v] + 1, std::vector<std::pair<int, int>>());
+
+	for (int layer = 0; layer < filtration.size(); layer++)
+	{
+		std::vector<int> visited(graph.verts.size(), -1);
+		std::vector<int> dists(graph.verts.size(), INT_MAX);
+
+		for (int vertex : filtration[layer])
+		{
+			std::priority_queue<std::pair<int, int>, std::vector<std::pair<int, int>>, std::greater<std::pair<int, int>>> pq;
+			
+			pq.push({ 0, vertex });
+			dists[vertex] = 0;
+			visited[vertex] = vertex;
+
+			while (!pq.empty() && res[vertex][layer].size() < neighbourhoodSize)
+			{
+				const auto [dist, cur] = pq.top();
+				pq.pop();
+
+				if (dists[cur] < dist)
+					continue;
+
+				if (dist > 0 && filtration[layer].contains(cur))
+					res[vertex][layer].emplace_back(cur, dist);
+
+				if (res[vertex][layer].size() >= neighbourhoodSize)
+					break;
+
+				if (layer > 0)
+				{
+					for (auto [other, otherDist] : res[cur][layer - 1])
+					{
+						if (otherDist > (1 << layer) - 1)
+							break;
+
+						if (visited[other] != vertex || dist + otherDist < dists[other])
+						{
+							visited[other] = vertex;
+							dists[other] = dist + otherDist;
+							pq.push({ dist + otherDist, other });
+						}
+					}
+				}
+				else
+				{
+					for (int other : graph.edges[cur])
+					{
+						if (visited[other] != vertex || dist + 1 < dists[other])
+						{
+							visited[other] = vertex;
+							dists[other] = dist + 1;
+							pq.push({ dist + 1, other });
+						}
+					}
+				}
 			}
 		}
 	}
@@ -181,9 +248,23 @@ std::vector<int> CoarseningPositioner::findParentNodes(const GraphEL& graph, con
 
 void CoarseningPositioner::positionVertices(GraphEL& graph)
 {
+	auto start = std::chrono::high_resolution_clock::now();
 	const auto filtration = createFiltration(graph);
+	auto end = std::chrono::high_resolution_clock::now();
+	std::cout << "FILTRATION TIME: " << std::chrono::duration_cast<std::chrono::milliseconds>(end - start) << "\n";
+
+	start = std::chrono::high_resolution_clock::now();
 	const auto neighbourhoods = findNeighbourhoods(graph, filtration);
+	end = std::chrono::high_resolution_clock::now();
+	std::cout << "NEIGHBOURHOOD TIME: " << std::chrono::duration_cast<std::chrono::milliseconds>(end - start) << "\n";
+
+	start = std::chrono::high_resolution_clock::now();
 	const auto parents = findParentNodes(graph, filtration);
+	end = std::chrono::high_resolution_clock::now();
+	std::cout << "PARENT TIME: " << std::chrono::duration_cast<std::chrono::milliseconds>(end - start) << "\n";
+	
+
+	start = std::chrono::high_resolution_clock::now();
 
 	std::vector<bool> placed(graph.verts.size(), false);
 	std::vector<float> dx(graph.verts.size(), 0.f);
@@ -240,4 +321,8 @@ void CoarseningPositioner::positionVertices(GraphEL& graph)
 			}
 		}
 	}
+
+	end = std::chrono::high_resolution_clock::now();
+
+	std::cout << "SIMULATION TIME: " << std::chrono::duration_cast<std::chrono::milliseconds>(end - start) << "\n";
 }

@@ -12,11 +12,13 @@ public:
 
 	std::vector<std::vector<std::vector<std::pair<int, int>>>> findNeighbourhoods(const GraphEL& graph, const std::vector<std::set<int>>& filtration);
 
+	std::vector<std::vector<std::vector<std::pair<int, int>>>> fastFindNeighbourhoods(const GraphEL& graph, const std::vector<std::set<int>>& filtration);
+
 	std::vector<int> findParentNodes(const GraphEL& graph, const std::vector<std::set<int>>& filtration);
 
 public:
 	int iters;
-	int neighbourMult;
+	int neighbourhoodSize;
 	float randRange;
 	float springStrength;
 	float edgeLength;

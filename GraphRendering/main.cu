@@ -101,7 +101,7 @@ void performanceTests()
 
 void tempFunc()
 {
-    GraphEL graph = serpinskyGraphEL(8, std::min(WINDOW_WIDTH, WINDOW_HEIGHT));
+    GraphEL graph = serpinskyGraphEL(9, std::min(WINDOW_WIDTH, WINDOW_HEIGHT));
 
     /*
     MultiLevelCPUPositioner positioner;
@@ -116,13 +116,44 @@ void tempFunc()
 
     CoarseningPositioner positioner;
     positioner.iters = 200;
-    positioner.neighbourMult = 3;
-    positioner.edgeLength = std::min(WINDOW_WIDTH, WINDOW_HEIGHT) / 320;
+    positioner.neighbourhoodSize = 20;
+    positioner.edgeLength = std::min(WINDOW_WIDTH, WINDOW_HEIGHT) / 700;
     positioner.springStrength = 0.2f;
     positioner.randRange = 10.f;
     positioner.centerCoords = { WINDOW_WIDTH / 2, WINDOW_HEIGHT / 2 };
+    
 
     positioner.positionVertices(graph);
+
+    /*
+    CoarseningPositioner positioner2;
+    positioner2.iters = 200;
+    positioner2.neighbourMult = 3;
+    positioner2.edgeLength = std::min(WINDOW_WIDTH, WINDOW_HEIGHT) / 40;
+    positioner2.springStrength = 0.2f;
+    positioner2.randRange = 10.f;
+    positioner2.centerCoords = { WINDOW_WIDTH / 2, WINDOW_HEIGHT / 2 };
+
+    const auto filtration = positioner2.createFiltration(graph);
+    const auto neighbourhoods = positioner2.findNeighbourhoods(graph, filtration);
+
+    int vert = 0;
+    int maxCount = 12;
+    int count = 0;
+    int layer = 2;
+    for (; vert < neighbourhoods.size(); vert++)
+    {
+        if (neighbourhoods[vert].size() > layer)
+            count++;
+
+        if (count >= maxCount)
+            break;
+    }
+
+    graph.verts[vert].color = { 0, 0, 255 };
+    for (auto [other, dist] : neighbourhoods[vert][layer])
+        graph.verts[other].color = { 255, 0, 0 };
+    */
 
     sf::RenderWindow window(sf::VideoMode({ WINDOW_WIDTH, WINDOW_HEIGHT }), "Graph Renderer");
     while (window.isOpen())
@@ -134,7 +165,7 @@ void tempFunc()
         }
 
         window.clear();
-        graph.draw(window, 1.f);
+        graph.draw(window, 0);
         window.display();
     }
 }
