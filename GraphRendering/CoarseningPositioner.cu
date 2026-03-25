@@ -5,6 +5,14 @@
 #include <random>
 #include <algorithm>
 #include <iostream>
+#include <cstdio>
+#include <cuda/cmath>
+
+#include "cuda_runtime.h"
+#include "device_launch_parameters.h"
+#include "cudaUtilityFuncs.h"
+
+const int THREADS_PER_BLOCK = 256;
 
 std::vector<std::set<int>> CoarseningPositioner::createFiltration(const GraphEL& graph)
 {
@@ -240,10 +248,282 @@ std::vector<int> CoarseningPositioner::findParentNodes(const GraphEL& graph, con
 				parentMap[other] = parentMap[cur];
 			}
 		}
-
 	}
 
 	return res;
+}
+
+__global__
+void placeVertsKernel(
+	float* x, float* y,
+	float* randOffsetX, float* randOffsetY, 
+	bool* placed, 
+	int* parents, 
+	int* filtration, 
+	int filtrationSize, 
+	float centerX, float centerY
+)
+{
+	const int i = threadIdx.x + blockDim.x * blockIdx.x;
+	if (i >= filtrationSize)
+		return;
+
+	int vert = filtration[i];
+
+	if (placed[vert])
+		return;
+	placed[vert] = true;
+
+	if (parents[vert] >= 0)
+	{
+		x[vert] = x[parents[vert]] + randOffsetX[vert];
+		y[vert] = y[parents[vert]] + randOffsetY[vert];
+	}
+	else
+	{
+		x[vert] = centerX + randOffsetX[vert];
+		y[vert] = centerY + randOffsetY[vert];
+	}
+}
+
+__global__
+void multiLevelKamadaKawaiKernel(
+	float* x_new, float* y_new, float* x_old, float* y_old, 
+	int* filtration, 
+	int* neighbours, 
+	int* dists, 
+	int layer, 
+	int filtrationSize, 
+	int neighbourhoodSize, 
+	float springStrength, 
+	float edgeLength
+)
+{
+	const int i = threadIdx.x + blockDim.x * blockIdx.x;
+	if (i >= filtrationSize)
+		return;
+
+	int vert = filtration[i];
+
+	x_new[vert] = x_old[vert];
+	y_new[vert] = y_old[vert];
+
+	for (int j = i * neighbourhoodSize; j < (i + 1) * neighbourhoodSize; j++)
+	{
+		int other = neighbours[j];
+		if (other == -1)
+			continue;
+
+		int avgDist = 1 << layer;
+		float normalizedDist = dists[j] / avgDist;
+
+		float k = springStrength / (normalizedDist * normalizedDist);
+		float l = edgeLength * dists[j];
+		float xDiff = x_old[vert] - x_old[other];
+		float yDiff = y_old[vert] - y_old[other];
+		float d = sqrtf(xDiff * xDiff + yDiff * yDiff);
+
+		x_new[vert] -= k * (xDiff) * (1 - l / d);
+		y_new[vert] -= k * (yDiff) * (1 - l / d);
+	}
+}
+
+void CoarseningPositioner::positionVerticesGPU(GraphEL& graph)
+{
+	auto start = std::chrono::high_resolution_clock::now();
+	const auto filtration = createFiltration(graph);
+	auto end = std::chrono::high_resolution_clock::now();
+	std::cout << "FILTRATION TIME: " << std::chrono::duration_cast<std::chrono::milliseconds>(end - start) << "\n";
+
+	start = std::chrono::high_resolution_clock::now();
+	const auto neighbourhoods = findNeighbourhoods(graph, filtration);
+	end = std::chrono::high_resolution_clock::now();
+	std::cout << "NEIGHBOURHOOD TIME: " << std::chrono::duration_cast<std::chrono::milliseconds>(end - start) << "\n";
+
+	start = std::chrono::high_resolution_clock::now();
+	const auto parents = findParentNodes(graph, filtration);
+	end = std::chrono::high_resolution_clock::now();
+	std::cout << "PARENT TIME: " << std::chrono::duration_cast<std::chrono::milliseconds>(end - start) << "\n";
+
+	start = std::chrono::high_resolution_clock::now();
+
+	// Initialize host memory
+	float* h_x;
+	float* h_y;
+	CUDA_CHECK(cudaMallocHost(&h_x, sizeof(float) * graph.verts.size()));
+	CUDA_CHECK(cudaMallocHost(&h_y, sizeof(float) * graph.verts.size()));
+	
+	for (int i = 0; i < graph.verts.size(); i++)
+	{
+		h_x[i] = graph.verts[i].position.x;
+		h_y[i] = graph.verts[i].position.y;
+	}
+
+	std::vector<int> filtrationInds;
+	std::vector<int> filtrationSizes;
+	filtrationInds.push_back(0);
+	for (int layer = 0; layer < filtration.size(); layer++)
+	{
+		filtrationSizes.push_back(filtration[layer].size());
+		if (layer < filtration.size() - 1)
+			filtrationInds.push_back(filtrationInds[filtrationInds.size() - 1] + filtration[layer].size());
+	}
+
+	int* h_filtration;
+	int totalFiltrationLen = filtrationInds[filtrationInds.size() - 1] + filtrationSizes[filtrationSizes.size() - 1];
+	CUDA_CHECK(cudaMallocHost(&h_filtration, sizeof(int) * totalFiltrationLen));
+
+	int ind = 0;
+	for (int layer = 0; layer < filtration.size(); layer++)
+	{
+		for (int vert : filtration[layer])
+		{
+			h_filtration[ind] = vert;
+			ind++;
+		}
+	}
+
+	int* h_neighbours;
+	int* h_dists;
+	CUDA_CHECK(cudaMallocHost(&h_neighbours, sizeof(int) * totalFiltrationLen * neighbourhoodSize));
+	CUDA_CHECK(cudaMallocHost(&h_dists, sizeof(int) * totalFiltrationLen * neighbourhoodSize));
+	memset(h_neighbours, -1, sizeof(int) * totalFiltrationLen * neighbourhoodSize);
+
+	for (int layer = 0; layer < filtrationInds.size(); layer++)
+	{
+		for (int i = filtrationInds[layer]; i < filtrationInds[layer] + filtrationSizes[layer]; i++)
+		{
+			int vert = h_filtration[i];
+			for (int j = 0; j < neighbourhoods[vert][layer].size(); j++)
+			{
+				h_neighbours[i * neighbourhoodSize + j] = neighbourhoods[vert][layer][j].first;
+				h_dists[i * neighbourhoodSize + j] = neighbourhoods[vert][layer][j].second;
+			}
+		}
+	}
+
+	bool* h_placed;
+	CUDA_CHECK(cudaMallocHost(&h_placed, sizeof(bool) * graph.verts.size()));
+	memset(h_placed, false, sizeof(bool) * graph.verts.size());
+
+	int* h_parents;
+	CUDA_CHECK(cudaMallocHost(&h_parents, sizeof(int) * graph.verts.size()));
+	for (int i = 0; i < parents.size(); i++)
+		h_parents[i] = parents[i];
+
+	float* h_randOffsetX;
+	float* h_randOffsetY;
+	CUDA_CHECK(cudaMallocHost(&h_randOffsetX, sizeof(float) * graph.verts.size()));
+	CUDA_CHECK(cudaMallocHost(&h_randOffsetY, sizeof(float) * graph.verts.size()));
+
+	std::mt19937 rng(std::chrono::steady_clock::now().time_since_epoch().count());
+	std::uniform_real_distribution<float> posDistribution(-randRange, randRange);
+	for (int i = 0; i < graph.verts.size(); i++)
+	{
+		h_randOffsetX[i] = posDistribution(rng);
+		h_randOffsetY[i] = posDistribution(rng);
+	}
+
+	// Initialize device memory
+	float* d_x1;
+	float* d_x2;
+	float* d_y1;
+	float* d_y2;
+	int* d_filtration;
+	int* d_neighbours;
+	int* d_dists;
+	bool* d_placed;
+	int* d_parents;
+	float* d_randOffsetX;
+	float* d_randOffsetY;
+	CUDA_CHECK(cudaMalloc(&d_x1, sizeof(float) * graph.verts.size()));
+	CUDA_CHECK(cudaMalloc(&d_x2, sizeof(float) * graph.verts.size()));
+	CUDA_CHECK(cudaMalloc(&d_y1, sizeof(float) * graph.verts.size()));
+	CUDA_CHECK(cudaMalloc(&d_y2, sizeof(float) * graph.verts.size()));
+	CUDA_CHECK(cudaMalloc(&d_filtration, sizeof(int) * totalFiltrationLen));
+	CUDA_CHECK(cudaMalloc(&d_neighbours, sizeof(int) * totalFiltrationLen * neighbourhoodSize));
+	CUDA_CHECK(cudaMalloc(&d_dists, sizeof(int) * totalFiltrationLen * neighbourhoodSize));
+	CUDA_CHECK(cudaMalloc(&d_placed, sizeof(bool) * graph.verts.size()));
+	CUDA_CHECK(cudaMalloc(&d_parents, sizeof(int) * graph.verts.size()));
+	CUDA_CHECK(cudaMalloc(&d_randOffsetX, sizeof(float) * graph.verts.size()));
+	CUDA_CHECK(cudaMalloc(&d_randOffsetY, sizeof(float) * graph.verts.size()));
+
+	// Copy host memory to device memory
+	CUDA_CHECK(cudaMemcpy(d_x2, h_x, sizeof(float) * graph.verts.size(), cudaMemcpyHostToDevice));
+	CUDA_CHECK(cudaMemcpy(d_y2, h_y, sizeof(float) * graph.verts.size(), cudaMemcpyHostToDevice));
+	CUDA_CHECK(cudaMemcpy(d_filtration, h_filtration, sizeof(int) * totalFiltrationLen, cudaMemcpyHostToDevice));
+	CUDA_CHECK(cudaMemcpy(d_neighbours, h_neighbours, sizeof(int) * totalFiltrationLen * neighbourhoodSize, cudaMemcpyHostToDevice));
+	CUDA_CHECK(cudaMemcpy(d_dists, h_dists, sizeof(int) * totalFiltrationLen * neighbourhoodSize, cudaMemcpyHostToDevice));
+	CUDA_CHECK(cudaMemcpy(d_placed, h_placed, sizeof(bool) * graph.verts.size(), cudaMemcpyHostToDevice));
+	CUDA_CHECK(cudaMemcpy(d_parents, h_parents, sizeof(int) * graph.verts.size(), cudaMemcpyHostToDevice));
+	CUDA_CHECK(cudaMemcpy(d_randOffsetX, h_randOffsetX, sizeof(float) * graph.verts.size(), cudaMemcpyHostToDevice));
+	CUDA_CHECK(cudaMemcpy(d_randOffsetY, h_randOffsetY, sizeof(float) * graph.verts.size(), cudaMemcpyHostToDevice));
+
+	// Main loop
+	for (int layer = filtrationInds.size() - 1; layer >= 0; layer--)
+	{
+		int threadsPerBlock = THREADS_PER_BLOCK;
+		int blocks = cuda::ceil_div(filtrationSizes[layer], threadsPerBlock);
+
+		placeVertsKernel<<<blocks, threadsPerBlock>>>(
+			d_x2, d_y2,
+			d_randOffsetX, d_randOffsetY,
+			d_placed,
+			d_parents,
+			d_filtration + filtrationInds[layer],
+			filtrationSizes[layer],
+			centerCoords.x, centerCoords.y
+			);
+
+		for (int iter = 0; iter < iters; iter++)
+		{
+			multiLevelKamadaKawaiKernel<<<blocks, threadsPerBlock>>>(
+				d_x1, d_y1, d_x2, d_y2,
+				d_filtration + filtrationInds[layer],
+				d_neighbours + filtrationInds[layer] * neighbourhoodSize,
+				d_dists + filtrationInds[layer] * neighbourhoodSize,
+				layer,
+				filtrationSizes[layer],
+				neighbourhoodSize,
+				springStrength,
+				edgeLength
+				);
+
+				std::swap(d_x1, d_x2);
+				std::swap(d_y1, d_y2);
+		}
+	}
+
+	// Copy results back to host
+	CUDA_CHECK(cudaMemcpy(h_x, d_x2, sizeof(float) * graph.verts.size(), cudaMemcpyDeviceToHost));
+	CUDA_CHECK(cudaMemcpy(h_y, d_y2, sizeof(float) * graph.verts.size(), cudaMemcpyDeviceToHost));
+
+	for (int i = 0; i < graph.verts.size(); i++)
+	{
+		graph.verts[i].position.x = h_x[i];
+		graph.verts[i].position.y = h_y[i];
+	}
+
+	// Free memory
+	CUDA_CHECK(cudaFree(d_x1));
+	CUDA_CHECK(cudaFree(d_x2));
+	CUDA_CHECK(cudaFree(d_y1));
+	CUDA_CHECK(cudaFree(d_y2));
+	CUDA_CHECK(cudaFree(d_filtration));
+	CUDA_CHECK(cudaFree(d_neighbours));
+	CUDA_CHECK(cudaFree(d_dists));
+	CUDA_CHECK(cudaFree(d_placed));
+
+	CUDA_CHECK(cudaFreeHost(h_x));
+	CUDA_CHECK(cudaFreeHost(h_y));
+	CUDA_CHECK(cudaFreeHost(h_filtration));
+	CUDA_CHECK(cudaFreeHost(h_neighbours));
+	CUDA_CHECK(cudaFreeHost(h_dists));
+	CUDA_CHECK(cudaFreeHost(h_placed));
+
+	end = std::chrono::high_resolution_clock::now();
+
+	std::cout << "SIMULATION TIME: " << std::chrono::duration_cast<std::chrono::milliseconds>(end - start) << "\n";
 }
 
 void CoarseningPositioner::positionVertices(GraphEL& graph)
@@ -262,7 +542,6 @@ void CoarseningPositioner::positionVertices(GraphEL& graph)
 	const auto parents = findParentNodes(graph, filtration);
 	end = std::chrono::high_resolution_clock::now();
 	std::cout << "PARENT TIME: " << std::chrono::duration_cast<std::chrono::milliseconds>(end - start) << "\n";
-	
 
 	start = std::chrono::high_resolution_clock::now();
 

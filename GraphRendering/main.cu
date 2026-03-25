@@ -101,7 +101,7 @@ void performanceTests()
 
 void tempFunc()
 {
-    GraphEL graph = serpinskyGraphEL(5, std::min(WINDOW_WIDTH, WINDOW_HEIGHT));
+    GraphEL graph = serpinskyGraphEL(10, std::min(WINDOW_WIDTH, WINDOW_HEIGHT));
 
     /*
     MultiLevelCPUPositioner positioner;
@@ -122,7 +122,7 @@ void tempFunc()
     positioner.randRange = 10.f;
     positioner.centerCoords = { WINDOW_WIDTH / 2, WINDOW_HEIGHT / 2 };
 
-    positioner.positionVertices(graph);
+    positioner.positionVerticesGPU(graph);
 
     graph.frameGraph(WINDOW_WIDTH, WINDOW_HEIGHT, 100.f);
 

@@ -24,6 +24,8 @@ public:
 	float edgeLength;
 	sf::Vector2f centerCoords;
 
+	void positionVerticesGPU(GraphEL& graph);
+	
 	void positionVertices(GraphEL& graph);
 	
 	std::string getConfigStr();
