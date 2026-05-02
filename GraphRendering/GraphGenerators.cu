@@ -6,6 +6,14 @@
 #include <vector>
 #include <set>
 
+void randomizeVertexPositions(Graph& graph, float range)
+{
+    std::mt19937 rng(std::chrono::steady_clock::now().time_since_epoch().count());
+    std::uniform_real_distribution<float> posDistribution(0.0f, range);
+    for (Vertex& vert : graph.verts)
+        vert.position = { posDistribution(rng), posDistribution(rng) };
+}
+
 void randomizeVertexPositions(GraphEL& graph, float range)
 {
     std::mt19937 rng(std::chrono::steady_clock::now().time_since_epoch().count());
@@ -144,4 +152,60 @@ GraphEL serpinskyGraphEL(int triNumber, float range)
     serpinskyHelper(graph, 0, graph.verts.size());
     randomizeVertexPositions(graph, range);
     return graph;
+}
+
+Graph latticeGraph(int width, int height, float range)
+{
+    Graph graph(width * height);
+    randomizeVertexPositions(graph, range);
+
+    for (int r = 0; r < height; r++)
+    {
+        for (int c = 0; c < width; c++)
+        {
+            int ind = r * width + c;
+            if (r > 0)
+            {
+                int aboveInd = (r - 1) * width + c;
+                graph.edges[ind][aboveInd] = true;
+            }
+            
+            if (c > 0)
+            {
+                int leftInd = ind - 1;
+                graph.edges[ind][leftInd] = true;
+            }
+        }
+    }
+
+    return graph;
+}
+
+Graph EdgeListToAdjacencyMatrix(GraphEL graphEL)
+{
+    Graph graph(graphEL.verts.size());
+
+    for (int v = 0; v < graphEL.verts.size(); v++)
+        graph.verts[v] = graphEL.verts[v];
+
+    for (int u = 0; u < graphEL.edges.size(); u++)
+        for (int v : graphEL.edges[u])
+            graph.edges[u][v] = true;
+
+    return graph;
+}
+
+GraphEL AdjacencyMatrixToEdgeList(Graph graph)
+{
+    GraphEL graphEL(graph.verts.size());
+
+    for (int v = 0; v < graph.verts.size(); v++)
+        graphEL.verts[v] = graph.verts[v];
+
+    for (int u = 0; u < graph.verts.size(); u++)
+        for (int v = 0; v < graph.verts.size(); v++)
+            if (graph.edges[u][v])
+                graphEL.edges[u].emplace_back(v);
+
+    return graphEL;
 }

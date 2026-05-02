@@ -101,60 +101,17 @@ void performanceTests()
 
 void tempFunc()
 {
-    GraphEL graph = serpinskyGraphEL(10, std::min(WINDOW_WIDTH, WINDOW_HEIGHT));
+    Graph graph = latticeGraph(3, 3, std::min(WINDOW_WIDTH, WINDOW_HEIGHT));
 
-    /*
-    MultiLevelCPUPositioner positioner;
-    positioner.iters = 200;
-    positioner.clusterNumber = 10;
-    positioner.edgeLength = std::min(WINDOW_WIDTH, WINDOW_HEIGHT) / 40;
-    positioner.springStrength = 0.2;
-    positioner.centerCoords = { WINDOW_WIDTH / 2, WINDOW_HEIGHT / 2 };
-    
-    positioner.positionVerticesKK(graph);
-    */
+    EadsPositioner positioner;
+    positioner.iters = 1000;
+    positioner.k1 = 0.3f;
+    positioner.k2 = 1.f;
+    positioner.k3 = 5000.f;
+    positioner.k4 = 0.5f;
+    positioner.timeResults = true;
 
-    CoarseningPositioner positioner;
-    positioner.iters = 200;
-    positioner.neighbourhoodSize = 30;
-    positioner.edgeLength = 10.f;
-    positioner.springStrength = 0.2f;
-    positioner.randRange = 10.f;
-    positioner.centerCoords = { WINDOW_WIDTH / 2, WINDOW_HEIGHT / 2 };
-
-    positioner.positionVerticesGPU(graph);
-
-    graph.frameGraph(WINDOW_WIDTH, WINDOW_HEIGHT, 100.f);
-
-    /*
-    CoarseningPositioner positioner2;
-    positioner2.iters = 200;
-    positioner2.neighbourMult = 3;
-    positioner2.edgeLength = std::min(WINDOW_WIDTH, WINDOW_HEIGHT) / 40;
-    positioner2.springStrength = 0.2f;
-    positioner2.randRange = 10.f;
-    positioner2.centerCoords = { WINDOW_WIDTH / 2, WINDOW_HEIGHT / 2 };
-
-    const auto filtration = positioner2.createFiltration(graph);
-    const auto neighbourhoods = positioner2.findNeighbourhoods(graph, filtration);
-
-    int vert = 0;
-    int maxCount = 12;
-    int count = 0;
-    int layer = 2;
-    for (; vert < neighbourhoods.size(); vert++)
-    {
-        if (neighbourhoods[vert].size() > layer)
-            count++;
-
-        if (count >= maxCount)
-            break;
-    }
-
-    graph.verts[vert].color = { 0, 0, 255 };
-    for (auto [other, dist] : neighbourhoods[vert][layer])
-        graph.verts[other].color = { 255, 0, 0 };
-    */
+    positioner.positionVertices(graph);
 
     sf::RenderWindow window(sf::VideoMode({ WINDOW_WIDTH, WINDOW_HEIGHT }), "Graph Renderer");
     while (window.isOpen())
@@ -166,7 +123,7 @@ void tempFunc()
         }
 
         window.clear();
-        graph.draw(window, 0.f);
+        graph.draw(window, 5.f);
         window.display();
     }
 }

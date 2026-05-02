@@ -13,7 +13,7 @@ const int THREADS_PER_BLOCK = 256;
 const int THREADS_PER_BLOCK_2D = 32;
 
 __global__
-void getForces(float* X, float* Y, float* EDGE_MASK, float* FX, float* FY, int numVerts, float k1, float k2)
+void getForces(float* X, float* Y, float* EDGE_MASK, float* FX, float* FY, int numVerts, float k1, float k2, float k3)
 {
     int r = threadIdx.y + blockDim.y * blockIdx.y;
     int c = threadIdx.x + blockDim.x * blockIdx.x;
@@ -30,8 +30,8 @@ void getForces(float* X, float* Y, float* EDGE_MASK, float* FX, float* FY, int n
         float dy = Y[c] - Y[r];
         float dist = sqrtf((dx * dx) + (dy * dy));
 
-        float em_force = -k1 / (dist * dist);
-        float elastic_force = k2 * dist * EDGE_MASK[i];
+        float elastic_force = k1 * logf(dist / k2) * EDGE_MASK[i];
+        float em_force = -k3 / (dist * dist);
         float total_force = em_force + elastic_force;
 
         FX[i] = dx * total_force / dist;
@@ -69,11 +69,11 @@ __global__ void reduceAddKernel2D(const float* d_data, float* d_result, int numR
 }
 
 __global__
-void vecAdd(float *A, float *B, float *out, int numElems)
+void vecMultiplyAdd(float *A, float k, float *B, float *out, int numElems)
 {
     int i = threadIdx.x + blockDim.x * blockIdx.x;
     if (i < numElems)
-        out[i] = A[i] + B[i];
+        out[i] = A[i] + k * B[i];
 }
 
 // The below function will produce a matrix in d_result1 of shape (1, numRows) which is identical in
@@ -185,7 +185,7 @@ void EadsPositioner::positionVertices(Graph& graph)
 
         dim3 forcesBlock(THREADS_PER_BLOCK_2D, THREADS_PER_BLOCK_2D);
         dim3 forcesGrid(cuda::ceil_div(NUM_VERTS, forcesBlock.x), cuda::ceil_div(NUM_VERTS, forcesBlock.y));
-        getForces<<<forcesGrid, forcesBlock, 0, mainStream>>>(d_X, d_Y, d_EDGE_MASK, d_FX, d_FY, NUM_VERTS, k1, k2);
+        getForces<<<forcesGrid, forcesBlock, 0, mainStream>>>(d_X, d_Y, d_EDGE_MASK, d_FX, d_FY, NUM_VERTS, k1, k2, k3);
         
         if (timeResults)
             cudaEventRecord(endForces[iter], mainStream);
@@ -205,10 +205,10 @@ void EadsPositioner::positionVertices(Graph& graph)
         if (timeResults)
             cudaEventRecord(startAdd[iter], mainStream);
 
-        int vecAddThreads = THREADS_PER_BLOCK;
-        int vecAddBlocks = cuda::ceil_div(NUM_VERTS, THREADS_PER_BLOCK);
-        vecAdd<<<vecAddBlocks, vecAddThreads, 0, mainStream>>>(d_X, d_DX1, d_X, NUM_VERTS);
-        vecAdd<<<vecAddBlocks, vecAddThreads, 0, mainStream>>>(d_Y, d_DY1, d_Y, NUM_VERTS);
+        int MultiplyAddThreads = THREADS_PER_BLOCK;
+        int MultiplyAddBlocks = cuda::ceil_div(NUM_VERTS, THREADS_PER_BLOCK);
+        vecMultiplyAdd<<<MultiplyAddBlocks, MultiplyAddThreads, 0, mainStream>>>(d_X, k4, d_DX1, d_X, NUM_VERTS);
+        vecMultiplyAdd<<<MultiplyAddBlocks, MultiplyAddThreads, 0, mainStream>>>(d_Y, k4, d_DY1, d_Y, NUM_VERTS);
 
         if (timeResults)
             cudaEventRecord(endAdd[iter], mainStream);
@@ -288,5 +288,7 @@ std::string EadsPositioner::getConfigStr()
 	res += "Iters: " + std::to_string(iters) + "\n";
 	res += "K1: " + std::to_string(k1) + "\n";
 	res += "K2: " + std::to_string(k2) + "\n";
+    res += "K3: " + std::to_string(k3) + "\n";
+    res += "K4: " + std::to_string(k4) + "\n";
 	return res;
 }
